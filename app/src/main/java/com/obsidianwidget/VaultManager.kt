@@ -43,6 +43,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_PINNED_NOTE_NAMES = "pinned_note_names"
         private const val KEY_CURRENT_NOTE_INDEX = "current_note_index"
         private const val KEY_WIDGET_ALPHA = "widget_alpha"
+        private const val KEY_TAP_CHECKBOX_ONLY = "tap_checkbox_only"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
@@ -63,6 +64,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_PINNED_NOTE_NAMES}_$widgetId")
                 .remove("${KEY_CURRENT_NOTE_INDEX}_$widgetId")
                 .remove("${KEY_WIDGET_ALPHA}_$widgetId")
+                .remove("${KEY_TAP_CHECKBOX_ONLY}_$widgetId")
                 .apply()
         }
     }
@@ -185,6 +187,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getInt(wk(KEY_WIDGET_ALPHA), 100)
         set(value) = prefs.edit().putInt(wk(KEY_WIDGET_ALPHA), value).apply()
 
+    var tapCheckboxOnly: Boolean
+        get() = prefs.getBoolean(wk(KEY_TAP_CHECKBOX_ONLY), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_TAP_CHECKBOX_ONLY), value).apply()
+
     /**
      * Batch save all widget settings using commit() for reliable persistence.
      */
@@ -194,7 +200,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         noteMode: NoteMode,
         showButtons: Boolean,
         sortUnchecked: Boolean,
-        widgetAlpha: Int
+        widgetAlpha: Int,
+        tapCheckboxOnly: Boolean
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -203,6 +210,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putBoolean(wk(KEY_SHOW_BUTTONS), showButtons)
             .putBoolean(wk(KEY_SORT_UNCHECKED), sortUnchecked)
             .putInt(wk(KEY_WIDGET_ALPHA), widgetAlpha)
+            .putBoolean(wk(KEY_TAP_CHECKBOX_ONLY), tapCheckboxOnly)
             .commit()
     }
 

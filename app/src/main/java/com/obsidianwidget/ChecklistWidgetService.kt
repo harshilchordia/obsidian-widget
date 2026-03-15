@@ -22,18 +22,40 @@ class ChecklistRemoteViewsFactory(
 ) : RemoteViewsService.RemoteViewsFactory {
 
     private var items = listOf<VaultManager.ChecklistItem>()
+    private var tapCheckboxOnly = false
 
     companion object {
         private val BOLD_ITALIC = Regex("""\*\*\*(.+?)\*\*\*""")
         private val BOLD = Regex("""\*\*(.+?)\*\*""")
         private val ITALIC_STAR = Regex("""\*(.+?)\*""")
         private val ITALIC_UNDER = Regex("""_(.+?)_""")
+        private val MD_LINK = Regex("""\[([^\]]+)\]\(([^)]+)\)""")
+        private val BARE_URL = Regex("""(?<!["'=(])((?:https?://)?[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+(?:/[^\s<>"']*)?)""")
 
+        fun extractFirstUrl(text: String): String? {
+            val mdMatch = MD_LINK.find(text)
+            if (mdMatch != null) {
+                val url = mdMatch.groupValues[2]
+                return if (url.startsWith("http")) url else "https://$url"
+            }
+            val bareMatch = BARE_URL.find(text)
+            if (bareMatch != null) {
+                val url = bareMatch.groupValues[1]
+                return if (url.startsWith("http")) url else "https://$url"
+            }
+            return null
+        }
         fun markdownToHtml(text: String): CharSequence {
             var html = text
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
+            html = MD_LINK.replace(html) { "<a href=\"${it.groupValues[2]}\">${it.groupValues[1]}</a>" }
+            html = BARE_URL.replace(html) {
+                val url = it.groupValues[1]
+                val href = if (url.startsWith("http")) url else "https://$url"
+                "<a href=\"$href\">$url</a>"
+            }
             html = BOLD_ITALIC.replace(html) { "<b><i>${it.groupValues[1]}</i></b>" }
             html = BOLD.replace(html) { "<b>${it.groupValues[1]}</b>" }
             html = ITALIC_STAR.replace(html) { "<i>${it.groupValues[1]}</i>" }
@@ -47,6 +69,7 @@ class ChecklistRemoteViewsFactory(
     override fun onDataSetChanged() {
         val vaultManager = VaultManager(context, widgetId)
         items = vaultManager.parseChecklist()
+        tapCheckboxOnly = vaultManager.tapCheckboxOnly
     }
 
     override fun onDestroy() {
@@ -61,7 +84,14 @@ class ChecklistRemoteViewsFactory(
         if (item.isHeading) {
             val views = RemoteViews(context.packageName, R.layout.widget_heading_item)
             views.setTextViewText(R.id.heading_item_content, markdownToHtml(item.text))
-            views.setOnClickFillInIntent(R.id.heading_item_root, Intent())
+            val url = extractFirstUrl(item.text)
+            if (url != null) {
+                views.setOnClickFillInIntent(R.id.heading_item_root, Intent().apply {
+                    putExtra(ObsidianWidgetProvider.EXTRA_URL, url)
+                })
+            } else {
+                views.setOnClickFillInIntent(R.id.heading_item_root, Intent())
+            }
             return views
         }
 
@@ -69,8 +99,14 @@ class ChecklistRemoteViewsFactory(
             val views = RemoteViews(context.packageName, R.layout.widget_text_item)
             val displayText = if (item.isBullet) "•  ${item.text}" else item.text
             views.setTextViewText(R.id.text_item_content, markdownToHtml(displayText))
-            // No click action for plain text
-            views.setOnClickFillInIntent(R.id.text_item_root, Intent())
+            val url = extractFirstUrl(item.text)
+            if (url != null) {
+                views.setOnClickFillInIntent(R.id.text_item_root, Intent().apply {
+                    putExtra(ObsidianWidgetProvider.EXTRA_URL, url)
+                })
+            } else {
+                views.setOnClickFillInIntent(R.id.text_item_root, Intent())
+            }
             return views
         }
 
@@ -100,7 +136,19 @@ class ChecklistRemoteViewsFactory(
             putExtra(ObsidianWidgetProvider.EXTRA_LINE_INDEX, item.lineIndex)
             putExtra(ObsidianWidgetProvider.EXTRA_WIDGET_ID, widgetId)
         }
-        views.setOnClickFillInIntent(R.id.checklist_item_root, fillIntent)
+        if (tapCheckboxOnly) {
+            views.setOnClickFillInIntent(R.id.checklist_checkbox, fillIntent)
+            val url = extractFirstUrl(item.text)
+            if (url != null) {
+                views.setOnClickFillInIntent(R.id.checklist_item_root, Intent().apply {
+                    putExtra(ObsidianWidgetProvider.EXTRA_URL, url)
+                })
+            } else {
+                views.setOnClickFillInIntent(R.id.checklist_item_root, Intent())
+            }
+        } else {
+            views.setOnClickFillInIntent(R.id.checklist_item_root, fillIntent)
+        }
 
         return views
     }

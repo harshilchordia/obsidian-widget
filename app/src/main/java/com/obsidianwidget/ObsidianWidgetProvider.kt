@@ -23,6 +23,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         const val EXTRA_LINE_INDEX = "extra_line_index"
         const val EXTRA_APPEND_TO_WIDGET = "extra_append_to_widget"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
+        const val EXTRA_URL = "extra_url"
 
         fun updateAllWidgets(context: Context) {
             val intent = Intent(context, ObsidianWidgetProvider::class.java).apply {
@@ -78,6 +79,16 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 openObsidian(context, widgetId)
             }
             ACTION_TOGGLE -> {
+                val url = intent.getStringExtra(EXTRA_URL)
+                if (!url.isNullOrEmpty()) {
+                    try {
+                        val browseIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(browseIntent)
+                    } catch (_: Exception) { }
+                    return
+                }
                 val lineIndex = intent.getIntExtra(EXTRA_LINE_INDEX, -1)
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
                 if (lineIndex >= 0) {
@@ -184,6 +195,12 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 context, appWidgetId + 10000, configIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+        )
+
+        // Refresh button
+        views.setOnClickPendingIntent(
+            R.id.widget_refresh,
+            createActionIntent(context, ACTION_REFRESH, appWidgetId)
         )
 
         // Quick capture button

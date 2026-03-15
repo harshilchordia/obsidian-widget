@@ -29,6 +29,7 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var transparencyLabel: TextView
     private lateinit var showButtonsToggle: Switch
     private lateinit var sortUncheckedToggle: Switch
+    private lateinit var tapCheckboxOnlyToggle: Switch
     private lateinit var dateFormatInput: EditText
 
     private val folderPicker = registerForActivityResult(
@@ -73,6 +74,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         transparencyLabel = findViewById(R.id.config_transparency_label)
         showButtonsToggle = findViewById(R.id.config_show_buttons)
         sortUncheckedToggle = findViewById(R.id.config_sort_unchecked)
+        tapCheckboxOnlyToggle = findViewById(R.id.config_tap_checkbox_only)
         dateFormatInput = findViewById(R.id.config_date_format)
 
         // Load saved settings into UI
@@ -132,6 +134,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         refreshNoteList()
         showButtonsToggle.isChecked = vaultManager.showButtons
         sortUncheckedToggle.isChecked = vaultManager.sortUnchecked
+        tapCheckboxOnlyToggle.isChecked = vaultManager.tapCheckboxOnly
         dateFormatInput.setText(vaultManager.dateFormat)
 
         transparencySeekBar.progress = vaultManager.widgetAlpha
@@ -213,7 +216,8 @@ class WidgetConfigActivity : AppCompatActivity() {
                 VaultManager.NoteMode.PINNED else VaultManager.NoteMode.DAILY,
             showButtons = showButtonsToggle.isChecked,
             sortUnchecked = sortUncheckedToggle.isChecked,
-            widgetAlpha = transparencySeekBar.progress
+            widgetAlpha = transparencySeekBar.progress,
+            tapCheckboxOnly = tapCheckboxOnlyToggle.isChecked
         )
 
         // Trigger update for this specific widget
