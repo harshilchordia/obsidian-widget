@@ -55,7 +55,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         when (intent.action) {
-            ACTION_REFRESH -> updateAllWidgets(context)
+            ACTION_REFRESH, Intent.ACTION_USER_PRESENT -> updateAllWidgets(context)
             ACTION_CAPTURE -> {
                 val captureIntent = Intent(context, QuickCaptureActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -160,12 +160,6 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(
             R.id.widget_date,
             createActionIntent(context, ACTION_OPEN, appWidgetId)
-        )
-
-        // Refresh button
-        views.setOnClickPendingIntent(
-            R.id.widget_refresh,
-            createActionIntent(context, ACTION_REFRESH, appWidgetId)
         )
 
         // Settings button opens widget config
