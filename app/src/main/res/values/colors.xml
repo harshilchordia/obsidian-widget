@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="obsidian_bg">#1E1E2E</color>
+    <color name="obsidian_surface">#2A2A3C</color>
+    <color name="obsidian_primary">#7C3AED</color>
+    <color name="obsidian_primary_dark">#6D28D9</color>
+    <color name="obsidian_accent">#A78BFA</color>
+    <color name="obsidian_text">#E2E8F0</color>
+    <color name="obsidian_text_secondary">#94A3B8</color>
+    <color name="obsidian_card">#313244</color>
+    <color name="white">#FFFFFF</color>
+    <color name="widget_bg">#E61E1E2E</color>
+</resources>

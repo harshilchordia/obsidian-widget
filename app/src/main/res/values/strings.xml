@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Obsidian Widget</string>
+    <string name="widget_description">Show daily notes and quick capture for Obsidian</string>
+    <string name="widget_title">Daily Note</string>
+    <string name="no_vault_selected">Tap to select your Obsidian vault</string>
+    <string name="no_daily_note">No daily note found</string>
+    <string name="quick_capture">Quick Capture</string>
+    <string name="open_obsidian">Open Obsidian</string>
+    <string name="capture_hint">Type your note…</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="select_vault">Select Vault Folder</string>
+    <string name="vault_selected">Vault: %s</string>
+    <string name="save_widget">Save Widget</string>
+    <string name="note_saved">Note saved!</string>
+    <string name="error_saving">Error saving note</string>
+    <string name="daily_note_creating">Daily note not found — opening Obsidian to create it with your template. Capture again after.</string>
+    <string name="setup_instructions">Add the Obsidian Widget to your home screen to see daily notes and quickly capture ideas.</string>
+    <string name="select_vault_folder">Select Vault Folder</string>
+    <string name="daily_notes_folder">Daily Notes Folder (optional)</string>
+    <string name="daily_notes_hint">e.g. Daily Notes</string>
+    <string name="date_format_label">Date Format</string>
+    <string name="vault_not_configured">Please select a vault folder first</string>
+    <string name="note_mode_label">Widget Shows</string>
+    <string name="mode_daily_note">Daily Note</string>
+    <string name="mode_specific_note">Specific Note</string>
+    <string name="pinned_note_label">Pinned Note</string>
+    <string name="no_note_selected">No note selected</string>
+    <string name="select_note">Pick Note</string>
+    <string name="note_selected">%s</string>
+</resources>

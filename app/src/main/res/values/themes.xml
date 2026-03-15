@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ObsidianWidget" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/obsidian_primary</item>
+        <item name="colorPrimaryDark">@color/obsidian_primary_dark</item>
+        <item name="colorAccent">@color/obsidian_accent</item>
+        <item name="android:windowBackground">@color/obsidian_bg</item>
+        <item name="android:statusBarColor">@color/obsidian_bg</item>
+        <item name="android:navigationBarColor">@color/obsidian_bg</item>
+    </style>
+
+    <style name="Theme.ObsidianWidget.Dialog" parent="Theme.Material3.DayNight.Dialog">
+        <item name="colorPrimary">@color/obsidian_primary</item>
+        <item name="colorAccent">@color/obsidian_accent</item>
+        <item name="android:windowBackground">@color/obsidian_surface</item>
+    </style>
+</resources>
