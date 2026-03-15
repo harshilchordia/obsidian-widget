@@ -15,6 +15,17 @@
         android:gravity="center_vertical"
         android:paddingBottom="8dp">
 
+        <ImageButton
+            android:id="@+id/widget_nav_left"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="4dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Previous note"
+            android:src="@drawable/ic_chevron_left"
+            android:scaleType="centerInside"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/widget_date"
             android:layout_width="0dp"
@@ -24,6 +35,17 @@
             android:textColor="@color/obsidian_text"
             android:textSize="15sp"
             android:fontFamily="sans-serif-medium" />
+
+        <ImageButton
+            android:id="@+id/widget_nav_right"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Next note"
+            android:src="@drawable/ic_chevron_right"
+            android:scaleType="centerInside"
+            android:visibility="gone" />
 
         <ImageButton
             android:id="@+id/widget_settings"

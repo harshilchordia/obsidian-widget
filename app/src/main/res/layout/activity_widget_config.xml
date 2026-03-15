@@ -101,7 +101,7 @@
                 android:buttonTint="@color/obsidian_primary" />
         </RadioGroup>
 
-        <!-- Pinned Note Selection -->
+        <!-- Pinned Notes Selection -->
         <LinearLayout
             android:id="@+id/config_pinned_section"
             android:layout_width="match_parent"
@@ -113,42 +113,29 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/pinned_note_label"
+                android:text="Notes"
                 android:textColor="@color/obsidian_text_secondary"
                 android:textSize="13sp"
                 android:fontFamily="sans-serif-medium"
                 android:layout_marginBottom="8dp" />
 
             <LinearLayout
+                android:id="@+id/config_note_list_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/input_background"
-                android:orientation="horizontal"
-                android:padding="14dp"
-                android:gravity="center_vertical">
+                android:orientation="vertical"
+                android:layout_marginBottom="8dp" />
 
-                <TextView
-                    android:id="@+id/config_pinned_note_text"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/no_note_selected"
-                    android:textColor="@color/obsidian_text_secondary"
-                    android:textSize="14sp" />
-
-                <Button
-                    android:id="@+id/config_select_note"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:background="@drawable/button_background"
-                    android:text="@string/select_note"
-                    android:textColor="@color/white"
-                    android:textSize="13sp"
-                    android:textAllCaps="false"
-                    android:fontFamily="sans-serif-medium"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp" />
-            </LinearLayout>
+            <Button
+                android:id="@+id/config_add_note"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:background="@drawable/button_outline"
+                android:text="+ Add Note"
+                android:textColor="@color/obsidian_text"
+                android:textSize="13sp"
+                android:textAllCaps="false"
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <!-- Daily Notes Folder -->
@@ -232,6 +219,45 @@
                 android:layout_height="wrap_content"
                 android:thumbTint="@color/obsidian_primary"
                 android:trackTint="@color/obsidian_text_secondary" />
+        </LinearLayout>
+
+        <!-- Widget Transparency -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Widget Opacity"
+            android:textColor="@color/obsidian_text_secondary"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/input_background"
+            android:orientation="horizontal"
+            android:padding="14dp"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="36dp">
+
+            <SeekBar
+                android:id="@+id/config_transparency"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="100"
+                android:progressTint="@color/obsidian_primary"
+                android:thumbTint="@color/obsidian_primary" />
+
+            <TextView
+                android:id="@+id/config_transparency_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="100%"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp" />
         </LinearLayout>
 
         <!-- Save Button -->

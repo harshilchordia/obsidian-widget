@@ -67,7 +67,8 @@ class ChecklistRemoteViewsFactory(
 
         if (item.isPlainText) {
             val views = RemoteViews(context.packageName, R.layout.widget_text_item)
-            views.setTextViewText(R.id.text_item_content, markdownToHtml(item.text))
+            val displayText = if (item.isBullet) "•  ${item.text}" else item.text
+            views.setTextViewText(R.id.text_item_content, markdownToHtml(displayText))
             // No click action for plain text
             views.setOnClickFillInIntent(R.id.text_item_root, Intent())
             return views

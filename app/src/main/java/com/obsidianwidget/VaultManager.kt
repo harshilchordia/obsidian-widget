@@ -22,7 +22,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val text: String,
         val isChecked: Boolean,
         val isPlainText: Boolean = false,
-        val isHeading: Boolean = false
+        val isHeading: Boolean = false,
+        val isBullet: Boolean = false
     )
 
     companion object {
@@ -38,10 +39,15 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_PINNED_NOTE_NAME = "pinned_note_name"
         private const val KEY_SHOW_BUTTONS = "show_buttons"
         private const val KEY_SORT_UNCHECKED = "sort_unchecked"
+        private const val KEY_PINNED_NOTE_URIS = "pinned_note_uris"
+        private const val KEY_PINNED_NOTE_NAMES = "pinned_note_names"
+        private const val KEY_CURRENT_NOTE_INDEX = "current_note_index"
+        private const val KEY_WIDGET_ALPHA = "widget_alpha"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
         private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.+)$""")
+        private val BULLET_REGEX = Regex("""^(\s*)[*+-]\s+(.+)$""")
 
         fun deleteWidgetPrefs(context: Context, widgetId: Int) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -53,6 +59,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_PINNED_NOTE_NAME}_$widgetId")
                 .remove("${KEY_SHOW_BUTTONS}_$widgetId")
                 .remove("${KEY_SORT_UNCHECKED}_$widgetId")
+                .remove("${KEY_PINNED_NOTE_URIS}_$widgetId")
+                .remove("${KEY_PINNED_NOTE_NAMES}_$widgetId")
+                .remove("${KEY_CURRENT_NOTE_INDEX}_$widgetId")
+                .remove("${KEY_WIDGET_ALPHA}_$widgetId")
                 .apply()
         }
     }
@@ -93,6 +103,76 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getString(wk(KEY_PINNED_NOTE_NAME), prefs.getString(KEY_PINNED_NOTE_NAME, null))
         set(value) = prefs.edit().putString(wk(KEY_PINNED_NOTE_NAME), value).apply()
 
+    var pinnedNoteUriList: List<String>
+        get() {
+            val list = prefs.getString(wk(KEY_PINNED_NOTE_URIS), null)
+            if (!list.isNullOrEmpty()) return list.split("|||").filter { it.isNotEmpty() }
+            val single = prefs.getString(wk(KEY_PINNED_NOTE_URI), prefs.getString(KEY_PINNED_NOTE_URI, null))
+            return if (single != null) listOf(single) else emptyList()
+        }
+        set(value) = prefs.edit().putString(wk(KEY_PINNED_NOTE_URIS), value.joinToString("|||")).apply()
+
+    var pinnedNoteNameList: List<String>
+        get() {
+            val list = prefs.getString(wk(KEY_PINNED_NOTE_NAMES), null)
+            if (!list.isNullOrEmpty()) return list.split("|||").filter { it.isNotEmpty() }
+            val single = prefs.getString(wk(KEY_PINNED_NOTE_NAME), prefs.getString(KEY_PINNED_NOTE_NAME, null))
+            return if (single != null) listOf(single) else emptyList()
+        }
+        set(value) = prefs.edit().putString(wk(KEY_PINNED_NOTE_NAMES), value.joinToString("|||")).apply()
+
+    var currentNoteIndex: Int
+        get() = prefs.getInt(wk(KEY_CURRENT_NOTE_INDEX), 0)
+        set(value) = prefs.edit().putInt(wk(KEY_CURRENT_NOTE_INDEX), value).apply()
+
+    fun addPinnedNote(uri: Uri, name: String) {
+        val uris = pinnedNoteUriList.toMutableList()
+        val names = pinnedNoteNameList.toMutableList()
+        uris.add(uri.toString())
+        names.add(name)
+        pinnedNoteUriList = uris
+        pinnedNoteNameList = names
+    }
+
+    fun removePinnedNote(index: Int) {
+        val uris = pinnedNoteUriList.toMutableList()
+        val names = pinnedNoteNameList.toMutableList()
+        if (index in uris.indices) {
+            uris.removeAt(index)
+            names.removeAt(index)
+            pinnedNoteUriList = uris
+            pinnedNoteNameList = names
+            if (currentNoteIndex >= uris.size) {
+                currentNoteIndex = (uris.size - 1).coerceAtLeast(0)
+            }
+        }
+    }
+
+    fun getPinnedNoteCount(): Int = pinnedNoteUriList.size
+
+    fun navigateNote(direction: Int) {
+        val count = getPinnedNoteCount()
+        if (count <= 1) return
+        var newIndex = currentNoteIndex + direction
+        if (newIndex < 0) newIndex = count - 1
+        if (newIndex >= count) newIndex = 0
+        currentNoteIndex = newIndex
+    }
+
+    fun getCurrentPinnedNoteUri(): Uri? {
+        val uris = pinnedNoteUriList
+        if (uris.isEmpty()) return null
+        val idx = currentNoteIndex.coerceIn(0, uris.lastIndex)
+        return Uri.parse(uris[idx])
+    }
+
+    fun getCurrentPinnedNoteName(): String? {
+        val names = pinnedNoteNameList
+        if (names.isEmpty()) return null
+        val idx = currentNoteIndex.coerceIn(0, names.lastIndex)
+        return names[idx]
+    }
+
     var showButtons: Boolean
         get() = prefs.getBoolean(wk(KEY_SHOW_BUTTONS), prefs.getBoolean(KEY_SHOW_BUTTONS, true))
         set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_BUTTONS), value).apply()
@@ -100,6 +180,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     var sortUnchecked: Boolean
         get() = prefs.getBoolean(wk(KEY_SORT_UNCHECKED), prefs.getBoolean(KEY_SORT_UNCHECKED, false))
         set(value) = prefs.edit().putBoolean(wk(KEY_SORT_UNCHECKED), value).apply()
+
+    var widgetAlpha: Int
+        get() = prefs.getInt(wk(KEY_WIDGET_ALPHA), 100)
+        set(value) = prefs.edit().putInt(wk(KEY_WIDGET_ALPHA), value).apply()
 
     val isVaultConfigured: Boolean
         get() = vaultUri != null
@@ -120,7 +204,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     fun getWidgetTitle(): String {
         return when (noteMode) {
             NoteMode.DAILY -> "Daily Note"
-            NoteMode.PINNED -> pinnedNoteName?.removeSuffix(".md") ?: "Pinned Note"
+            NoteMode.PINNED -> getCurrentPinnedNoteName()?.removeSuffix(".md") ?: "Pinned Note"
         }
     }
 
@@ -128,7 +212,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
      * Read the pinned note content.
      */
     fun readPinnedNote(): String? {
-        val uri = pinnedNoteUri ?: return null
+        val uri = getCurrentPinnedNoteUri() ?: return null
         return readFileContent(uri)
     }
 
@@ -162,7 +246,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     fun appendToPinnedNote(text: String): Boolean {
-        val uri = pinnedNoteUri ?: return false
+        val uri = getCurrentPinnedNoteUri() ?: return false
         val existing = readFileContent(uri) ?: ""
         val newContent = if (existing.isNotBlank()) "$existing\n$text" else text
         return writeFileContent(uri, newContent)
@@ -265,8 +349,14 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             } else if (headingMatch != null) {
                 val text = headingMatch.groupValues[2].trim()
                 items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isHeading = true))
-            } else if (line.isNotBlank()) {
-                items.add(ChecklistItem(lineIndex = index, text = line.trim(), isChecked = false, isPlainText = true))
+            } else {
+                val bulletMatch = BULLET_REGEX.matchEntire(line)
+                if (bulletMatch != null) {
+                    val text = bulletMatch.groupValues[2].trim()
+                    items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isBullet = true))
+                } else if (line.isNotBlank()) {
+                    items.add(ChecklistItem(lineIndex = index, text = line.trim(), isChecked = false, isPlainText = true))
+                }
             }
         }
         if (sortUnchecked) {
@@ -306,7 +396,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
      */
     fun getWidgetNoteUri(): Uri? {
         return when (noteMode) {
-            NoteMode.PINNED -> pinnedNoteUri
+            NoteMode.PINNED -> getCurrentPinnedNoteUri()
             NoteMode.DAILY -> getDailyNoteUri()
         }
     }

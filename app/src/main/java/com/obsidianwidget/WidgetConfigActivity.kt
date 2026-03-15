@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioGroup
+import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,7 +24,9 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var noteModeGroup: RadioGroup
     private lateinit var pinnedSection: LinearLayout
     private lateinit var dailySection: LinearLayout
-    private lateinit var pinnedNoteText: TextView
+    private lateinit var noteListContainer: LinearLayout
+    private lateinit var transparencySeekBar: SeekBar
+    private lateinit var transparencyLabel: TextView
     private lateinit var showButtonsToggle: Switch
     private lateinit var sortUncheckedToggle: Switch
 
@@ -64,7 +67,9 @@ class WidgetConfigActivity : AppCompatActivity() {
         noteModeGroup = findViewById(R.id.config_note_mode_group)
         pinnedSection = findViewById(R.id.config_pinned_section)
         dailySection = findViewById(R.id.config_daily_section)
-        pinnedNoteText = findViewById(R.id.config_pinned_note_text)
+        noteListContainer = findViewById(R.id.config_note_list_container)
+        transparencySeekBar = findViewById(R.id.config_transparency)
+        transparencyLabel = findViewById(R.id.config_transparency_label)
         showButtonsToggle = findViewById(R.id.config_show_buttons)
         sortUncheckedToggle = findViewById(R.id.config_sort_unchecked)
 
@@ -79,16 +84,27 @@ class WidgetConfigActivity : AppCompatActivity() {
         updateModeSections(isPinned)
 
         vaultManager.pinnedNoteName?.let {
-            pinnedNoteText.text = it.removeSuffix(".md")
+            // Migration handled by list getter
         }
+        refreshNoteList()
         showButtonsToggle.isChecked = vaultManager.showButtons
         sortUncheckedToggle.isChecked = vaultManager.sortUnchecked
+
+        transparencySeekBar.progress = vaultManager.widgetAlpha
+        transparencyLabel.text = "${vaultManager.widgetAlpha}%"
+        transparencySeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                transparencyLabel.text = "$progress%"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         findViewById<Button>(R.id.config_select_vault).setOnClickListener {
             folderPicker.launch(null)
         }
 
-        findViewById<Button>(R.id.config_select_note).setOnClickListener {
+        findViewById<Button>(R.id.config_add_note).setOnClickListener {
             notePicker.launch(arrayOf("text/*", "application/octet-stream"))
         }
 
@@ -122,9 +138,49 @@ class WidgetConfigActivity : AppCompatActivity() {
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
         val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Note"
-        vaultManager.pinnedNoteUri = uri
-        vaultManager.pinnedNoteName = fileName
-        pinnedNoteText.text = fileName.removeSuffix(".md")
+        vaultManager.addPinnedNote(uri, fileName)
+        refreshNoteList()
+    }
+
+    private fun refreshNoteList() {
+        noteListContainer.removeAllViews()
+        val names = vaultManager.pinnedNoteNameList
+        names.forEachIndexed { index, name ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(36, 24, 36, 24)
+                background = getDrawable(R.drawable.input_background)
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                params.bottomMargin = 8
+                layoutParams = params
+            }
+
+            val nameText = TextView(this).apply {
+                text = name.removeSuffix(".md")
+                setTextColor(getColor(R.color.obsidian_text))
+                textSize = 14f
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val removeBtn = TextView(this).apply {
+                text = "\u2715"
+                setTextColor(getColor(R.color.obsidian_text_secondary))
+                textSize = 16f
+                setPadding(16, 0, 0, 0)
+                setOnClickListener {
+                    vaultManager.removePinnedNote(index)
+                    refreshNoteList()
+                }
+            }
+
+            row.addView(nameText)
+            row.addView(removeBtn)
+            noteListContainer.addView(row)
+        }
     }
 
     private fun saveAndFinish() {
@@ -133,6 +189,7 @@ class WidgetConfigActivity : AppCompatActivity() {
             VaultManager.NoteMode.PINNED else VaultManager.NoteMode.DAILY
         vaultManager.showButtons = showButtonsToggle.isChecked
         vaultManager.sortUnchecked = sortUncheckedToggle.isChecked
+        vaultManager.widgetAlpha = transparencySeekBar.progress
 
         // Trigger update for this specific widget
         val appWidgetManager = AppWidgetManager.getInstance(this)

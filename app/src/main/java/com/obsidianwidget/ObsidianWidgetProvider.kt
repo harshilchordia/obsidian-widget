@@ -18,6 +18,8 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         private const val ACTION_OPEN = "com.obsidianwidget.ACTION_OPEN"
         private const val ACTION_TOGGLE = "com.obsidianwidget.ACTION_TOGGLE"
         private const val ACTION_ADD = "com.obsidianwidget.ACTION_ADD"
+        private const val ACTION_NAV_LEFT = "com.obsidianwidget.ACTION_NAV_LEFT"
+        private const val ACTION_NAV_RIGHT = "com.obsidianwidget.ACTION_NAV_RIGHT"
         const val EXTRA_LINE_INDEX = "extra_line_index"
         const val EXTRA_APPEND_TO_WIDGET = "extra_append_to_widget"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
@@ -87,6 +89,15 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                         ComponentName(context, ObsidianWidgetProvider::class.java)
                     )
                     appWidgetManager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_checklist)
+                }
+            }
+            ACTION_NAV_LEFT, ACTION_NAV_RIGHT -> {
+                val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
+                if (widgetId >= 0) {
+                    val vaultManager = VaultManager(context, widgetId)
+                    vaultManager.navigateNote(if (intent.action == ACTION_NAV_LEFT) -1 else 1)
+                    val appWidgetManager = AppWidgetManager.getInstance(context)
+                    updateWidget(context, appWidgetManager, widgetId)
                 }
             }
         }
@@ -187,6 +198,19 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             if (vaultManager.showButtons) View.VISIBLE else View.GONE
         )
 
+        // Apply widget transparency
+        views.setFloat(R.id.widget_root, "setAlpha", vaultManager.widgetAlpha / 100f)
+
+        // Show/hide navigation arrows for multi-note
+        val noteCount = if (vaultManager.noteMode == VaultManager.NoteMode.PINNED) vaultManager.getPinnedNoteCount() else 0
+        val showNav = noteCount > 1
+        views.setViewVisibility(R.id.widget_nav_left, if (showNav) View.VISIBLE else View.GONE)
+        views.setViewVisibility(R.id.widget_nav_right, if (showNav) View.VISIBLE else View.GONE)
+        if (showNav) {
+            views.setOnClickPendingIntent(R.id.widget_nav_left, createActionIntent(context, ACTION_NAV_LEFT, appWidgetId))
+            views.setOnClickPendingIntent(R.id.widget_nav_right, createActionIntent(context, ACTION_NAV_RIGHT, appWidgetId))
+        }
+
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 
@@ -209,7 +233,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         if (vaultName != null) {
             val noteName = when (vaultManager.noteMode) {
                 VaultManager.NoteMode.PINNED ->
-                    vaultManager.pinnedNoteName?.removeSuffix(".md")
+                    vaultManager.getCurrentPinnedNoteName()?.removeSuffix(".md")
                 VaultManager.NoteMode.DAILY -> {
                     val folder = vaultManager.dailyFolder
                     val date = java.time.LocalDate.now()
