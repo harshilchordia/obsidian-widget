@@ -21,7 +21,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val lineIndex: Int,
         val text: String,
         val isChecked: Boolean,
-        val isPlainText: Boolean = false
+        val isPlainText: Boolean = false,
+        val isHeading: Boolean = false
     )
 
     companion object {
@@ -36,9 +37,11 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_PINNED_NOTE_URI = "pinned_note_uri"
         private const val KEY_PINNED_NOTE_NAME = "pinned_note_name"
         private const val KEY_SHOW_BUTTONS = "show_buttons"
+        private const val KEY_SORT_UNCHECKED = "sort_unchecked"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
+        private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.+)$""")
 
         fun deleteWidgetPrefs(context: Context, widgetId: Int) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -49,6 +52,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_PINNED_NOTE_URI}_$widgetId")
                 .remove("${KEY_PINNED_NOTE_NAME}_$widgetId")
                 .remove("${KEY_SHOW_BUTTONS}_$widgetId")
+                .remove("${KEY_SORT_UNCHECKED}_$widgetId")
                 .apply()
         }
     }
@@ -92,6 +96,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     var showButtons: Boolean
         get() = prefs.getBoolean(wk(KEY_SHOW_BUTTONS), prefs.getBoolean(KEY_SHOW_BUTTONS, true))
         set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_BUTTONS), value).apply()
+
+    var sortUnchecked: Boolean
+        get() = prefs.getBoolean(wk(KEY_SORT_UNCHECKED), prefs.getBoolean(KEY_SORT_UNCHECKED, false))
+        set(value) = prefs.edit().putBoolean(wk(KEY_SORT_UNCHECKED), value).apply()
 
     val isVaultConfigured: Boolean
         get() = vaultUri != null
@@ -249,13 +257,23 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val items = mutableListOf<ChecklistItem>()
         content.lines().forEachIndexed { index, line ->
             val match = CHECKLIST_REGEX.matchEntire(line)
+            val headingMatch = HEADING_REGEX.matchEntire(line)
             if (match != null) {
                 val checked = match.groupValues[2].lowercase() == "x"
                 val text = match.groupValues[3].trim()
                 items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked))
+            } else if (headingMatch != null) {
+                val text = headingMatch.groupValues[2].trim()
+                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isHeading = true))
             } else if (line.isNotBlank()) {
                 items.add(ChecklistItem(lineIndex = index, text = line.trim(), isChecked = false, isPlainText = true))
             }
+        }
+        if (sortUnchecked) {
+            val nonChecklist = items.filter { it.isPlainText }
+            val unchecked = items.filter { !it.isPlainText && !it.isChecked }
+            val checked = items.filter { !it.isPlainText && it.isChecked }
+            return nonChecklist + unchecked + checked
         }
         return items
     }

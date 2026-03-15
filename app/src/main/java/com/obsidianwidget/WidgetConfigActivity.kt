@@ -25,6 +25,7 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var dailySection: LinearLayout
     private lateinit var pinnedNoteText: TextView
     private lateinit var showButtonsToggle: Switch
+    private lateinit var sortUncheckedToggle: Switch
 
     private val folderPicker = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -65,6 +66,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         dailySection = findViewById(R.id.config_daily_section)
         pinnedNoteText = findViewById(R.id.config_pinned_note_text)
         showButtonsToggle = findViewById(R.id.config_show_buttons)
+        sortUncheckedToggle = findViewById(R.id.config_sort_unchecked)
 
         // Load existing settings
         if (vaultManager.isVaultConfigured) {
@@ -80,6 +82,7 @@ class WidgetConfigActivity : AppCompatActivity() {
             pinnedNoteText.text = it.removeSuffix(".md")
         }
         showButtonsToggle.isChecked = vaultManager.showButtons
+        sortUncheckedToggle.isChecked = vaultManager.sortUnchecked
 
         findViewById<Button>(R.id.config_select_vault).setOnClickListener {
             folderPicker.launch(null)
@@ -129,6 +132,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         vaultManager.noteMode = if (noteModeGroup.checkedRadioButtonId == R.id.config_radio_pinned)
             VaultManager.NoteMode.PINNED else VaultManager.NoteMode.DAILY
         vaultManager.showButtons = showButtonsToggle.isChecked
+        vaultManager.sortUnchecked = sortUncheckedToggle.isChecked
 
         // Trigger update for this specific widget
         val appWidgetManager = AppWidgetManager.getInstance(this)

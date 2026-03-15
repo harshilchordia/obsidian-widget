@@ -58,6 +58,13 @@ class ChecklistRemoteViewsFactory(
     override fun getViewAt(position: Int): RemoteViews {
         val item = items[position]
 
+        if (item.isHeading) {
+            val views = RemoteViews(context.packageName, R.layout.widget_heading_item)
+            views.setTextViewText(R.id.heading_item_content, markdownToHtml(item.text))
+            views.setOnClickFillInIntent(R.id.heading_item_root, Intent())
+            return views
+        }
+
         if (item.isPlainText) {
             val views = RemoteViews(context.packageName, R.layout.widget_text_item)
             views.setTextViewText(R.id.text_item_content, markdownToHtml(item.text))
@@ -98,7 +105,7 @@ class ChecklistRemoteViewsFactory(
     }
 
     override fun getLoadingView(): RemoteViews? = null
-    override fun getViewTypeCount(): Int = 2
+    override fun getViewTypeCount(): Int = 3
     override fun getItemId(position: Int): Long = items[position].lineIndex.toLong()
     override fun hasStableIds(): Boolean = true
 }
