@@ -28,7 +28,33 @@
         android:textColor="@color/obsidian_text"
         android:textColorHint="@color/obsidian_text_secondary"
         android:textSize="14sp"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginBottom="12dp" />
+
+    <!-- Add to Top Toggle -->
+    <LinearLayout
+        android:id="@+id/capture_add_to_top_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Add to top"
+            android:textColor="@color/obsidian_text"
+            android:textSize="14sp" />
+
+        <Switch
+            android:id="@+id/capture_add_to_top"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:thumbTint="@color/obsidian_primary"
+            android:trackTint="@color/obsidian_text_secondary" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

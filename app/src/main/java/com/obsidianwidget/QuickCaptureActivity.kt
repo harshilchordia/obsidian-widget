@@ -1,8 +1,10 @@
 package com.obsidianwidget
 
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Switch
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
@@ -21,6 +23,14 @@ class QuickCaptureActivity : AppCompatActivity() {
         val widgetId = intent.getIntExtra(ObsidianWidgetProvider.EXTRA_WIDGET_ID, -1)
         val widgetVaultManager = if (widgetId >= 0) VaultManager(this, widgetId) else vaultManager
         val captureInput = findViewById<EditText>(R.id.capture_input)
+        val addToTopToggle = findViewById<Switch>(R.id.capture_add_to_top)
+        val addToTopRow = findViewById<View>(R.id.capture_add_to_top_row)
+
+        // Show/hide add-to-top toggle based on widget config
+        if (widgetVaultManager.showAddToTop) {
+            addToTopRow.visibility = View.VISIBLE
+            addToTopToggle.isChecked = widgetVaultManager.addToTop
+        }
 
         if (appendToWidget) {
             captureInput.hint = "Add to ${widgetVaultManager.getWidgetTitle()}..."
@@ -43,8 +53,10 @@ class QuickCaptureActivity : AppCompatActivity() {
             }
 
             val success = if (appendToWidget) {
+                widgetVaultManager.addToTop = addToTopToggle.isChecked
                 widgetVaultManager.appendToWidgetNote(text)
             } else {
+                vaultManager.addToTop = addToTopToggle.isChecked
                 vaultManager.appendToDailyNote(text)
             }
             if (success) {

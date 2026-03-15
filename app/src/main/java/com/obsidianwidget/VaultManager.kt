@@ -44,6 +44,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_CURRENT_NOTE_INDEX = "current_note_index"
         private const val KEY_WIDGET_ALPHA = "widget_alpha"
         private const val KEY_TAP_CHECKBOX_ONLY = "tap_checkbox_only"
+        private const val KEY_ADD_TO_TOP = "add_to_top"
+        private const val KEY_SHOW_ADD_TO_TOP = "show_add_to_top"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
@@ -65,6 +67,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_CURRENT_NOTE_INDEX}_$widgetId")
                 .remove("${KEY_WIDGET_ALPHA}_$widgetId")
                 .remove("${KEY_TAP_CHECKBOX_ONLY}_$widgetId")
+                .remove("${KEY_ADD_TO_TOP}_$widgetId")
+                .remove("${KEY_SHOW_ADD_TO_TOP}_$widgetId")
                 .apply()
         }
     }
@@ -191,6 +195,14 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getBoolean(wk(KEY_TAP_CHECKBOX_ONLY), false)
         set(value) = prefs.edit().putBoolean(wk(KEY_TAP_CHECKBOX_ONLY), value).apply()
 
+    var addToTop: Boolean
+        get() = prefs.getBoolean(wk(KEY_ADD_TO_TOP), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_ADD_TO_TOP), value).apply()
+
+    var showAddToTop: Boolean
+        get() = prefs.getBoolean(wk(KEY_SHOW_ADD_TO_TOP), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_ADD_TO_TOP), value).apply()
+
     /**
      * Batch save all widget settings using commit() for reliable persistence.
      */
@@ -201,7 +213,9 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         showButtons: Boolean,
         sortUnchecked: Boolean,
         widgetAlpha: Int,
-        tapCheckboxOnly: Boolean
+        tapCheckboxOnly: Boolean,
+        addToTop: Boolean,
+        showAddToTop: Boolean
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -211,6 +225,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putBoolean(wk(KEY_SORT_UNCHECKED), sortUnchecked)
             .putInt(wk(KEY_WIDGET_ALPHA), widgetAlpha)
             .putBoolean(wk(KEY_TAP_CHECKBOX_ONLY), tapCheckboxOnly)
+            .putBoolean(wk(KEY_ADD_TO_TOP), addToTop)
+            .putBoolean(wk(KEY_SHOW_ADD_TO_TOP), showAddToTop)
             .commit()
     }
 
@@ -277,7 +293,9 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     fun appendToPinnedNote(text: String): Boolean {
         val uri = getCurrentPinnedNoteUri() ?: return false
         val existing = readFileContent(uri) ?: ""
-        val newContent = if (existing.isNotBlank()) "$existing\n$text" else text
+        val newContent = if (existing.isNotBlank()) {
+            if (addToTop) "$text\n$existing" else "$existing\n$text"
+        } else text
         return writeFileContent(uri, newContent)
     }
 
@@ -295,13 +313,11 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val noteFile = targetDir.findFile(todayFileName)
 
         return if (noteFile != null) {
-            // Append to existing file
+            // Append or prepend to existing file
             val existing = readFileContent(noteFile.uri) ?: ""
             val newContent = if (existing.isNotBlank()) {
-                "$existing\n\n$text"
-            } else {
-                text
-            }
+                if (addToTop) "$text\n\n$existing" else "$existing\n\n$text"
+            } else text
             writeFileContent(noteFile.uri, newContent)
         } else {
             // Create new file — just the captured text, no header
