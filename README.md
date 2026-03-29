@@ -2,6 +2,14 @@
 
 A feature-rich Android home screen widget for [Obsidian](https://obsidian.md). View your notes, check off tasks, and capture ideas — all without opening the app.
 
+<p align="center">
+   <img src="assets/screenshots/widget-shopping-list.png" alt="Home screen widget showing a shopping list" width="24%" />
+   <img src="assets/screenshots/widget-todo.png" alt="Compact home screen widget showing a to-do list" width="24%" />
+   <img src="assets/screenshots/configure-widget-top.png" alt="Widget configuration screen with vault and note mode settings" width="24%" />
+   <img src="assets/screenshots/configure-widget-full.png" alt="Widget configuration screen with theme, accent color, and opacity" width="24%" />
+</p>
+
+
 ## Install
 
 ### Option 1: Download the APK (easiest)
