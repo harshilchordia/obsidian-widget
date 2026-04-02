@@ -125,6 +125,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         val vaultManager = VaultManager(context, appWidgetId)
 
         // Set title based on mode
+        val noteCount = if (vaultManager.noteMode == VaultManager.NoteMode.PINNED) vaultManager.getPinnedNoteCount() else 0
         views.setTextViewText(R.id.widget_date, vaultManager.getWidgetTitle())
 
         // Check if note has checklist items
@@ -180,11 +181,22 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             createActionIntent(context, ACTION_ADD, appWidgetId)
         )
 
-        // Title click opens note in Obsidian
+        // Title click always opens note in Obsidian
         views.setOnClickPendingIntent(
             R.id.widget_date,
             createActionIntent(context, ACTION_OPEN, appWidgetId)
         )
+
+        // Cycle note arrow (visible only for multi-note)
+        if (noteCount > 1) {
+            views.setViewVisibility(R.id.widget_cycle_note, View.VISIBLE)
+            views.setOnClickPendingIntent(
+                R.id.widget_cycle_note,
+                createActionIntent(context, ACTION_NAV_RIGHT, appWidgetId)
+            )
+        } else {
+            views.setViewVisibility(R.id.widget_cycle_note, View.GONE)
+        }
 
         // Settings button opens widget config
         val configIntent = Intent(context, WidgetConfigActivity::class.java).apply {
@@ -233,16 +245,6 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             val accentTint = ColorStateList.valueOf(colors.accent)
             views.setColorStateList(R.id.widget_btn_capture, "setBackgroundTintList", accentTint)
             views.setColorStateList(R.id.widget_add, "setBackgroundTintList", accentTint)
-        }
-
-        // Show/hide navigation arrows for multi-note
-        val noteCount = if (vaultManager.noteMode == VaultManager.NoteMode.PINNED) vaultManager.getPinnedNoteCount() else 0
-        val showNav = noteCount > 1
-        views.setViewVisibility(R.id.widget_nav_left, if (showNav) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.widget_nav_right, if (showNav) View.VISIBLE else View.GONE)
-        if (showNav) {
-            views.setOnClickPendingIntent(R.id.widget_nav_left, createActionIntent(context, ACTION_NAV_LEFT, appWidgetId))
-            views.setOnClickPendingIntent(R.id.widget_nav_right, createActionIntent(context, ACTION_NAV_RIGHT, appWidgetId))
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views)

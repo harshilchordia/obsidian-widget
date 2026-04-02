@@ -15,18 +15,6 @@
         android:gravity="center_vertical"
         android:paddingBottom="8dp">
 
-        <ImageButton
-            android:id="@+id/widget_nav_left"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:padding="6dp"
-            android:layout_marginEnd="4dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Previous note"
-            android:src="@drawable/ic_chevron_left"
-            android:scaleType="centerInside"
-            android:visibility="gone" />
-
         <TextView
             android:id="@+id/widget_date"
             android:layout_width="0dp"
@@ -38,10 +26,9 @@
             android:fontFamily="sans-serif-medium" />
 
         <ImageButton
-            android:id="@+id/widget_nav_right"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:padding="6dp"
+            android:id="@+id/widget_cycle_note"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:layout_marginEnd="8dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="Next note"
@@ -102,33 +89,35 @@
     <LinearLayout
         android:id="@+id/widget_button_bar"
         android:layout_width="match_parent"
-        android:layout_height="38dp"
-        android:layout_marginTop="10dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="4dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
         <Button
-            android:id="@+id/widget_btn_capture"
+            android:id="@+id/widget_add"
             android:layout_width="0dp"
-            android:layout_height="34dp"
+            android:layout_height="28dp"
             android:layout_weight="1"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:background="@drawable/button_background"
-            android:text="Capture"
+            android:text="+ Add"
             android:textColor="@color/white"
             android:textSize="12sp"
             android:textAllCaps="false"
             android:fontFamily="sans-serif-medium" />
 
-        <ImageButton
-            android:id="@+id/widget_add"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+        <Button
+            android:id="@+id/widget_btn_capture"
+            android:layout_width="0dp"
+            android:layout_height="28dp"
+            android:layout_weight="1"
             android:background="@drawable/button_background"
-            android:contentDescription="Add to note"
-            android:src="@drawable/ic_add"
-            android:scaleType="centerInside"
-            android:padding="7dp" />
+            android:text="Note"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium" />
     </LinearLayout>
 
 </LinearLayout>
