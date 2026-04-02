@@ -229,6 +229,12 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             if (vaultManager.showButtons) View.VISIBLE else View.GONE
         )
 
+        // Absorb taps on empty space so they don't trigger launcher reconfigure
+        views.setOnClickPendingIntent(
+            R.id.widget_root,
+            createActionIntent(context, ACTION_REFRESH, appWidgetId)
+        )
+
         // Apply widget transparency
         views.setFloat(R.id.widget_root, "setAlpha", vaultManager.widgetAlpha / 100f)
 
