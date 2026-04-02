@@ -95,15 +95,12 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 }
                 val lineIndex = intent.getIntExtra(EXTRA_LINE_INDEX, -1)
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
-                if (lineIndex >= 0) {
+                if (lineIndex >= 0 && widgetId >= 0) {
                     val vaultManager = VaultManager(context, widgetId)
                     vaultManager.toggleChecklistItem(lineIndex)
-                    // Notify the widget data changed so ListView refreshes
+                    // Only refresh the specific widget's list data
                     val appWidgetManager = AppWidgetManager.getInstance(context)
-                    val widgetIds = appWidgetManager.getAppWidgetIds(
-                        ComponentName(context, ObsidianWidgetProvider::class.java)
-                    )
-                    appWidgetManager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_checklist)
+                    appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_checklist)
                 }
             }
             ACTION_NAV_LEFT, ACTION_NAV_RIGHT -> {
