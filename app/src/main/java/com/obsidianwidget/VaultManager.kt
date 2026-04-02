@@ -23,7 +23,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val isChecked: Boolean,
         val isPlainText: Boolean = false,
         val isHeading: Boolean = false,
-        val isBullet: Boolean = false
+        val isBullet: Boolean = false,
+        val indentLevel: Int = 0
     )
 
     companion object {
@@ -434,17 +435,21 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             val match = CHECKLIST_REGEX.matchEntire(line)
             val headingMatch = HEADING_REGEX.matchEntire(line)
             if (match != null) {
+                val indent = match.groupValues[1]
+                val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
                 val checked = match.groupValues[2].lowercase() == "x"
                 val text = match.groupValues[3].trim()
-                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked))
+                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked, indentLevel = indentLevel))
             } else if (headingMatch != null) {
                 val text = headingMatch.groupValues[2].trim()
                 items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isHeading = true))
             } else {
                 val bulletMatch = BULLET_REGEX.matchEntire(line)
                 if (bulletMatch != null) {
+                    val indent = bulletMatch.groupValues[1]
+                    val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
                     val text = bulletMatch.groupValues[2].trim()
-                    items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isBullet = true))
+                    items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isBullet = true, indentLevel = indentLevel))
                 } else if (line.isNotBlank()) {
                     items.add(ChecklistItem(lineIndex = index, text = line.trim(), isChecked = false, isPlainText = true))
                 }

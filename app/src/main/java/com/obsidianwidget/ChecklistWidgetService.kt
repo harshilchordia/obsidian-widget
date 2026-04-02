@@ -109,6 +109,10 @@ class ChecklistRemoteViewsFactory(
             val displayText = if (item.isBullet) "•  ${item.text}" else item.text
             views.setTextViewText(R.id.text_item_content, markdownToHtml(displayText))
             views.setTextColor(R.id.text_item_content, themeColors.text)
+            if (item.indentLevel > 0) {
+                val indentPx = (item.indentLevel * 16 * context.resources.displayMetrics.density).toInt()
+                views.setViewPadding(R.id.text_item_root, indentPx + 12, 4, 4, 4)
+            }
             val url = extractFirstUrl(item.text)
             if (url != null) {
                 views.setOnClickFillInIntent(R.id.text_item_root, Intent().apply {
@@ -121,6 +125,12 @@ class ChecklistRemoteViewsFactory(
         }
 
         val views = RemoteViews(context.packageName, R.layout.widget_checklist_item)
+
+        // Apply indent for nested items
+        if (item.indentLevel > 0) {
+            val indentPx = (item.indentLevel * 16 * context.resources.displayMetrics.density).toInt()
+            views.setViewPadding(R.id.checklist_item_root, indentPx + 12, 8, 4, 8)
+        }
 
         // Set checkbox icon
         views.setImageViewResource(
