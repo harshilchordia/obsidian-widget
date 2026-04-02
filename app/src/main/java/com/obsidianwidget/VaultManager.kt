@@ -49,6 +49,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_SHOW_ADD_TO_TOP = "show_add_to_top"
         private const val KEY_WIDGET_THEME = "widget_theme"
         private const val KEY_ACCENT_COLOR = "accent_color"
+        private const val KEY_SHOW_TODO_COUNT = "show_todo_count"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
@@ -74,6 +75,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_SHOW_ADD_TO_TOP}_$widgetId")
                 .remove("${KEY_WIDGET_THEME}_$widgetId")
                 .remove("${KEY_ACCENT_COLOR}_$widgetId")
+                .remove("${KEY_SHOW_TODO_COUNT}_$widgetId")
                 .apply()
         }
     }
@@ -216,6 +218,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getString(wk(KEY_ACCENT_COLOR), "#D97757") ?: "#D97757"
         set(value) = prefs.edit().putString(wk(KEY_ACCENT_COLOR), value).apply()
 
+    var showTodoCount: Boolean
+        get() = prefs.getBoolean(wk(KEY_SHOW_TODO_COUNT), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_TODO_COUNT), value).apply()
+
     fun getThemeColors(): ThemeColors {
         val isDark = widgetTheme == "dark"
         val accent = try { android.graphics.Color.parseColor(accentColor) } catch (_: Exception) { 0xFFD97757.toInt() }
@@ -260,7 +266,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         addToTop: Boolean,
         showAddToTop: Boolean,
         widgetTheme: String,
-        accentColor: String
+        accentColor: String,
+        showTodoCount: Boolean
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -274,6 +281,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putBoolean(wk(KEY_SHOW_ADD_TO_TOP), showAddToTop)
             .putString(wk(KEY_WIDGET_THEME), widgetTheme)
             .putString(wk(KEY_ACCENT_COLOR), accentColor)
+            .putBoolean(wk(KEY_SHOW_TODO_COUNT), showTodoCount)
             .commit()
     }
 

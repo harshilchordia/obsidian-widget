@@ -131,6 +131,16 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         val allItems = vaultManager.parseChecklist()
         val hasChecklist = allItems.any { !it.isPlainText }
 
+        // Show TODO count if enabled
+        if (vaultManager.showTodoCount && hasChecklist) {
+            val unchecked = allItems.count { !it.isPlainText && !it.isChecked }
+            val total = allItems.count { !it.isPlainText }
+            views.setTextViewText(R.id.widget_todo_count, "$unchecked of $total remaining")
+            views.setViewVisibility(R.id.widget_todo_count, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_todo_count, View.GONE)
+        }
+
         if (hasChecklist) {
             // Show interactive checklist ListView
             views.setViewVisibility(R.id.widget_checklist, View.VISIBLE)
@@ -244,6 +254,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             if (isDark) R.drawable.widget_background else R.drawable.widget_background_light)
         views.setTextColor(R.id.widget_date, colors.text)
         views.setTextColor(R.id.widget_note_preview, colors.textSecondary)
+        views.setTextColor(R.id.widget_todo_count, colors.textSecondary)
 
         // Tint accent-colored buttons (preserves rounded drawable shape)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

@@ -295,6 +295,32 @@
                 android:trackTint="@color/obsidian_text_secondary" />
         </LinearLayout>
 
+        <!-- Show TODO Count Toggle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/input_background"
+            android:orientation="horizontal"
+            android:padding="14dp"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="36dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Show TODO count in header"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp" />
+
+            <Switch
+                android:id="@+id/config_show_todo_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:thumbTint="@color/obsidian_primary"
+                android:trackTint="@color/obsidian_text_secondary" />
+        </LinearLayout>
+
         <!-- Theme -->
         <TextView
             android:layout_width="wrap_content"

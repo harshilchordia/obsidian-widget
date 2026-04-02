@@ -15,15 +15,30 @@
         android:gravity="center_vertical"
         android:paddingBottom="8dp">
 
-        <TextView
-            android:id="@+id/widget_date"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Daily Note"
-            android:textColor="@color/obsidian_text"
-            android:textSize="15sp"
-            android:fontFamily="sans-serif-medium" />
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Daily Note"
+                android:textColor="@color/obsidian_text"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/widget_todo_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/obsidian_text_secondary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <ImageButton
             android:id="@+id/widget_cycle_note"
