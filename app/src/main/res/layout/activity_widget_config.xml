@@ -1,464 +1,507 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/obsidian_bg">
+    android:background="@color/obsidian_bg"
+    android:orientation="vertical">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="28dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Configure Widget"
-            android:textColor="@color/obsidian_text"
-            android:textSize="26sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="36dp" />
-
-        <!-- Vault Selection -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Vault"
-            android:textColor="@color/obsidian_text_secondary"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="8dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="20dp">
-
-            <TextView
-                android:id="@+id/config_vault_path"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="No vault selected"
-                android:textColor="@color/obsidian_text_secondary"
-                android:textSize="14sp" />
-
-            <Button
-                android:id="@+id/config_select_vault"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:background="@drawable/button_background"
-                android:text="Select"
-                android:textColor="@color/white"
-                android:textSize="13sp"
-                android:textAllCaps="false"
-                android:fontFamily="sans-serif-medium"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp" />
-        </LinearLayout>
-
-        <!-- Note Mode Toggle -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/note_mode_label"
-            android:textColor="@color/obsidian_text_secondary"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="8dp" />
-
-        <RadioGroup
-            android:id="@+id/config_note_mode_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:layout_marginBottom="20dp">
-
-            <RadioButton
-                android:id="@+id/config_radio_daily"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/mode_daily_note"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp"
-                android:buttonTint="@color/obsidian_primary" />
-
-            <RadioButton
-                android:id="@+id/config_radio_pinned"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/mode_specific_note"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp"
-                android:buttonTint="@color/obsidian_primary" />
-        </RadioGroup>
-
-        <!-- Pinned Notes Selection -->
-        <LinearLayout
-            android:id="@+id/config_pinned_section"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone"
-            android:layout_marginBottom="20dp">
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Notes"
-                android:textColor="@color/obsidian_text_secondary"
-                android:textSize="13sp"
+                android:text="Configure Widget"
+                android:textColor="@color/obsidian_text"
+                android:textSize="22sp"
                 android:fontFamily="sans-serif-medium"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="20dp" />
 
+            <!-- ===== NOTE SOURCE ===== -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NOTE SOURCE"
+                android:textColor="@color/obsidian_primary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="10dp" />
+
+            <!-- Vault -->
             <LinearLayout
-                android:id="@+id/config_note_list_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:id="@+id/config_vault_path"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="No vault selected"
+                    android:textColor="@color/obsidian_text_secondary"
+                    android:textSize="14sp" />
+
+                <Button
+                    android:id="@+id/config_select_vault"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:text="Select"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textAllCaps="false"
+                    android:fontFamily="sans-serif-medium"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp" />
+            </LinearLayout>
+
+            <!-- Note Mode -->
+            <RadioGroup
+                android:id="@+id/config_note_mode_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:layout_marginBottom="8dp">
+
+                <RadioButton
+                    android:id="@+id/config_radio_daily"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/mode_daily_note"
+                    android:textColor="@color/obsidian_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/obsidian_primary" />
+
+                <RadioButton
+                    android:id="@+id/config_radio_pinned"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/mode_specific_note"
+                    android:textColor="@color/obsidian_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/obsidian_primary" />
+            </RadioGroup>
+
+            <!-- Pinned Notes -->
+            <LinearLayout
+                android:id="@+id/config_pinned_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="8dp" />
+                android:visibility="gone"
+                android:layout_marginBottom="8dp">
 
-            <Button
-                android:id="@+id/config_add_note"
+                <LinearLayout
+                    android:id="@+id/config_note_list_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="6dp" />
+
+                <Button
+                    android:id="@+id/config_add_note"
+                    android:layout_width="match_parent"
+                    android:layout_height="36dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_outline"
+                    android:text="+ Add Note"
+                    android:textColor="@color/obsidian_text"
+                    android:textSize="12sp"
+                    android:textAllCaps="false"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <!-- Daily Notes Folder -->
+            <LinearLayout
+                android:id="@+id/config_daily_section"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
-                android:background="@drawable/button_outline"
-                android:text="+ Add Note"
-                android:textColor="@color/obsidian_text"
-                android:textSize="13sp"
-                android:textAllCaps="false"
-                android:fontFamily="sans-serif-medium" />
-        </LinearLayout>
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="8dp">
 
-        <!-- Daily Notes Folder -->
-        <LinearLayout
-            android:id="@+id/config_daily_section"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="20dp">
+                <EditText
+                    android:id="@+id/config_daily_folder"
+                    android:layout_width="match_parent"
+                    android:layout_height="42dp"
+                    android:background="@drawable/input_background"
+                    android:hint="@string/daily_notes_hint"
+                    android:textColor="@color/obsidian_text"
+                    android:textColorHint="@color/obsidian_text_secondary"
+                    android:textSize="13sp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:inputType="text"
+                    android:layout_marginBottom="6dp" />
 
+                <EditText
+                    android:id="@+id/config_date_format"
+                    android:layout_width="match_parent"
+                    android:layout_height="42dp"
+                    android:background="@drawable/input_background"
+                    android:text="yyyy-MM-dd"
+                    android:hint="@string/date_format_label"
+                    android:textColor="@color/obsidian_text"
+                    android:textColorHint="@color/obsidian_text_secondary"
+                    android:textSize="13sp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:inputType="text" />
+            </LinearLayout>
+
+            <!-- ===== BEHAVIOR ===== -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Daily Notes Subfolder"
-                android:textColor="@color/obsidian_text_secondary"
-                android:textSize="13sp"
+                android:text="BEHAVIOR"
+                android:textColor="@color/obsidian_primary"
+                android:textSize="11sp"
                 android:fontFamily="sans-serif-medium"
-                android:layout_marginBottom="8dp" />
+                android:letterSpacing="0.1"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="10dp" />
 
-            <EditText
-                android:id="@+id/config_daily_folder"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="wrap_content"
                 android:background="@drawable/input_background"
-                android:hint="@string/daily_notes_hint"
-                android:textColor="@color/obsidian_text"
-                android:textColorHint="@color/obsidian_text_secondary"
-                android:textSize="14sp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:inputType="text"
-                android:layout_marginBottom="20dp" />
+                android:orientation="vertical"
+                android:layout_marginBottom="16dp">
 
+                <!-- Show buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Show Add &amp; Note buttons"
+                        android:textColor="@color/obsidian_text"
+                        android:textSize="13sp" />
+
+                    <Switch
+                        android:id="@+id/config_show_buttons"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumbTint="@color/obsidian_primary"
+                        android:trackTint="@color/obsidian_text_secondary" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/obsidian_bg"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp" />
+
+                <!-- Sort unchecked -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Sort unchecked first"
+                        android:textColor="@color/obsidian_text"
+                        android:textSize="13sp" />
+
+                    <Switch
+                        android:id="@+id/config_sort_unchecked"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumbTint="@color/obsidian_primary"
+                        android:trackTint="@color/obsidian_text_secondary" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/obsidian_bg"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp" />
+
+                <!-- Tap checkbox only -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Toggle only on checkbox tap"
+                        android:textColor="@color/obsidian_text"
+                        android:textSize="13sp" />
+
+                    <Switch
+                        android:id="@+id/config_tap_checkbox_only"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumbTint="@color/obsidian_primary"
+                        android:trackTint="@color/obsidian_text_secondary" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/obsidian_bg"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp" />
+
+                <!-- Show add-to-top -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Show add-to-top on capture"
+                        android:textColor="@color/obsidian_text"
+                        android:textSize="13sp" />
+
+                    <Switch
+                        android:id="@+id/config_show_add_to_top"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumbTint="@color/obsidian_primary"
+                        android:trackTint="@color/obsidian_text_secondary" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/obsidian_bg"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp" />
+
+                <!-- Show TODO count -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Show TODO count in header"
+                        android:textColor="@color/obsidian_text"
+                        android:textSize="13sp" />
+
+                    <Switch
+                        android:id="@+id/config_show_todo_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumbTint="@color/obsidian_primary"
+                        android:trackTint="@color/obsidian_text_secondary" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ===== APPEARANCE ===== -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/date_format_label"
-                android:textColor="@color/obsidian_text_secondary"
-                android:textSize="13sp"
+                android:text="APPEARANCE"
+                android:textColor="@color/obsidian_primary"
+                android:textSize="11sp"
                 android:fontFamily="sans-serif-medium"
-                android:layout_marginBottom="8dp" />
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="10dp" />
 
-            <EditText
-                android:id="@+id/config_date_format"
+            <!-- Theme -->
+            <RadioGroup
+                android:id="@+id/config_theme_group"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="wrap_content"
                 android:background="@drawable/input_background"
-                android:text="yyyy-MM-dd"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:inputType="text" />
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:layout_marginBottom="8dp">
+
+                <RadioButton
+                    android:id="@+id/config_theme_dark"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Dark"
+                    android:textColor="@color/obsidian_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/obsidian_primary" />
+
+                <RadioButton
+                    android:id="@+id/config_theme_light"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Light"
+                    android:textColor="@color/obsidian_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/obsidian_primary" />
+            </RadioGroup>
+
+            <!-- Accent Color -->
+            <LinearLayout
+                android:id="@+id/config_accent_color_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center"
+                android:layout_marginBottom="8dp">
+
+                <View
+                    android:id="@+id/color_terracotta"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:tag="#D97757" />
+
+                <View
+                    android:id="@+id/color_purple"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:tag="#7C5FC7" />
+
+                <View
+                    android:id="@+id/color_blue"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:tag="#4A9EF5" />
+
+                <View
+                    android:id="@+id/color_green"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:tag="#4CAF50" />
+
+                <View
+                    android:id="@+id/color_red"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:tag="#E53935" />
+
+                <View
+                    android:id="@+id/color_teal"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:tag="#009688" />
+
+                <View
+                    android:id="@+id/color_pink"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="8dp"
+                    android:tag="#E91E63" />
+
+                <View
+                    android:id="@+id/color_amber"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:tag="#FFB300" />
+            </LinearLayout>
+
+            <!-- Opacity -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Opacity"
+                    android:textColor="@color/obsidian_text_secondary"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="8dp" />
+
+                <SeekBar
+                    android:id="@+id/config_transparency"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="100"
+                    android:progressTint="@color/obsidian_primary"
+                    android:thumbTint="@color/obsidian_primary" />
+
+                <TextView
+                    android:id="@+id/config_transparency_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="100%"
+                    android:textColor="@color/obsidian_text"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
         </LinearLayout>
+    </ScrollView>
 
-        <!-- Show Buttons Toggle -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="36dp">
+    <!-- Save Button - always visible at bottom -->
+    <Button
+        android:id="@+id/config_save"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/button_background"
+        android:text="@string/save_widget"
+        android:textColor="@color/white"
+        android:textSize="15sp"
+        android:textAllCaps="false"
+        android:fontFamily="sans-serif-medium" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Show widget buttons"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp" />
-
-            <Switch
-                android:id="@+id/config_show_buttons"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:thumbTint="@color/obsidian_primary"
-                android:trackTint="@color/obsidian_text_secondary" />
-        </LinearLayout>
-
-        <!-- Sort Unchecked First Toggle -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="20dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Sort unchecked first"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp" />
-
-            <Switch
-                android:id="@+id/config_sort_unchecked"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:thumbTint="@color/obsidian_primary"
-                android:trackTint="@color/obsidian_text_secondary" />
-        </LinearLayout>
-
-        <!-- Tap Checkbox Only Toggle -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="36dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Toggle only on checkbox tap"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp" />
-
-            <Switch
-                android:id="@+id/config_tap_checkbox_only"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:thumbTint="@color/obsidian_primary"
-                android:trackTint="@color/obsidian_text_secondary" />
-        </LinearLayout>
-
-        <!-- Show Add to Top Toggle -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="36dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Show add-to-top toggle on capture"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp" />
-
-            <Switch
-                android:id="@+id/config_show_add_to_top"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:thumbTint="@color/obsidian_primary"
-                android:trackTint="@color/obsidian_text_secondary" />
-        </LinearLayout>
-
-        <!-- Theme -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Theme"
-            android:textColor="@color/obsidian_text_secondary"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="8dp" />
-
-        <RadioGroup
-            android:id="@+id/config_theme_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:layout_marginBottom="20dp">
-
-            <RadioButton
-                android:id="@+id/config_theme_dark"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Dark"
-                android:textColor="@color/obsidian_text"
-                android:buttonTint="@color/obsidian_primary" />
-
-            <RadioButton
-                android:id="@+id/config_theme_light"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Light"
-                android:textColor="@color/obsidian_text"
-                android:buttonTint="@color/obsidian_primary" />
-        </RadioGroup>
-
-        <!-- Accent Color -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Accent Color"
-            android:textColor="@color/obsidian_text_secondary"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="8dp" />
-
-        <LinearLayout
-            android:id="@+id/config_accent_color_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:gravity="center"
-            android:layout_marginBottom="20dp">
-
-            <View
-                android:id="@+id/color_terracotta"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
-                android:tag="#D97757" />
-
-            <View
-                android:id="@+id/color_purple"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
-                android:tag="#7C5FC7" />
-
-            <View
-                android:id="@+id/color_blue"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
-                android:tag="#4A9EF5" />
-
-            <View
-                android:id="@+id/color_green"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
-                android:tag="#4CAF50" />
-
-            <View
-                android:id="@+id/color_red"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
-                android:tag="#E53935" />
-
-            <View
-                android:id="@+id/color_teal"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
-                android:tag="#009688" />
-
-            <View
-                android:id="@+id/color_pink"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
-                android:tag="#E91E63" />
-
-            <View
-                android:id="@+id/color_amber"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:tag="#FFB300" />
-        </LinearLayout>
-
-        <!-- Widget Transparency -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Widget Opacity"
-            android:textColor="@color/obsidian_text_secondary"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="8dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/input_background"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="36dp">
-
-            <SeekBar
-                android:id="@+id/config_transparency"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100"
-                android:progress="100"
-                android:progressTint="@color/obsidian_primary"
-                android:thumbTint="@color/obsidian_primary" />
-
-            <TextView
-                android:id="@+id/config_transparency_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:text="100%"
-                android:textColor="@color/obsidian_text"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Save Button -->
-        <Button
-            android:id="@+id/config_save"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@drawable/button_background"
-            android:text="@string/save_widget"
-            android:textColor="@color/white"
-            android:textSize="15sp"
-            android:textAllCaps="false"
-            android:fontFamily="sans-serif-medium" />
-
-    </LinearLayout>
-</ScrollView>
+</LinearLayout>

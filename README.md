@@ -39,17 +39,21 @@ Or open in Android Studio and click **Run**.
 ## Features
 
 - **Daily note or pinned notes** — show today's daily note or pick specific files
-- **Multiple notes per widget** — swipe between notes with navigation arrows
+- **Multiple notes per widget** — cycle between notes with the swap arrow
 - **Interactive checkboxes** — tap to toggle `- [ ]` / `- [x]` directly from the widget
-- **Quick capture** — pop-up dialog to append text to your note
-- **Append with +** — one-tap add, auto-formats as checkbox if the note uses them
-- **Markdown rendering** — bold, italic, headings, and bullet lists
+- **Quick capture** — "Note" button appends to today's daily note
+- **Append with +** — one-tap add to whichever note the widget is currently showing
+- **TODO counter** — optional live count of unchecked tasks in the header
+- **Markdown rendering** — bold, italic, links, headings, and bullet lists
+- **Clickable links** — tap URLs and Markdown links to open in your browser
+- **Nested indentation** — sub-items display with matching indent levels
 - **Sort unchecked first** — push completed tasks to the bottom
+- **Accent color presets** — 8 color choices (terracotta, purple, blue, green, red, teal, pink, amber)
+- **Dark & light themes** — choose your preferred look
 - **Widget transparency** — adjustable opacity to blend with your wallpaper
-- **Auto-refresh** — updates every 30 minutes and on screen unlock
+- **Auto-refresh** — updates every 15 minutes and on screen unlock
 - **Deep link to Obsidian** — tap the title to open the note in Obsidian
 - **Per-widget settings** — each widget has independent configuration
-- **Dark theme** — Obsidian-inspired dark UI
 
 ## Widget Configuration
 
@@ -62,8 +66,13 @@ All settings are per-widget. Tap the ⚙ icon on any widget to access:
 | Notes | Add/remove multiple pinned notes |
 | Daily Subfolder | e.g. `Daily Notes` |
 | Date Format | Any Java date pattern (`yyyy-MM-dd`, `dd-MM-yyyy`, etc.) |
-| Show Buttons | Toggle the capture/add button bar |
+| Show Buttons | Toggle the + Add / Note button bar |
 | Sort Unchecked | Move incomplete tasks to the top |
+| Tap Checkbox Only | Require tapping the checkbox circle to toggle |
+| Show Add-to-Top | Show the add-to-top toggle on capture dialogs |
+| Show TODO Count | Display unchecked task count in the header |
+| Theme | Dark or Light |
+| Accent Color | Pick from 8 color presets |
 | Widget Opacity | 0–100% transparency slider |
 
 ## Requirements
@@ -76,12 +85,13 @@ All settings are per-widget. Tap the ⚙ icon on any widget to access:
 
 ```
 app/src/main/java/com/obsidianwidget/
-├── MainActivity.kt              # Welcome screen & vault selection
-├── WidgetConfigActivity.kt      # Per-widget settings (gear icon)
-├── ObsidianWidgetProvider.kt    # Widget rendering & action handling
-├── ChecklistWidgetService.kt    # ListView adapter (checkboxes, text, headings)
-├── QuickCaptureActivity.kt      # Quick capture dialog
-└── VaultManager.kt              # Vault I/O, preferences, markdown parsing
+├── ObsidianWidgetApp.kt          # Application class (screen-unlock auto-refresh)
+├── MainActivity.kt               # Welcome screen & vault selection
+├── WidgetConfigActivity.kt       # Per-widget settings (gear icon)
+├── ObsidianWidgetProvider.kt     # Widget rendering & action handling
+├── ChecklistWidgetService.kt     # ListView adapter (checkboxes, text, headings)
+├── QuickCaptureActivity.kt       # Quick capture & add-line dialogs
+└── VaultManager.kt               # Vault I/O, preferences, themes, markdown parsing
 ```
 
 ## Tech Stack

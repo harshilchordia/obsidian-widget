@@ -33,6 +33,7 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var sortUncheckedToggle: Switch
     private lateinit var tapCheckboxOnlyToggle: Switch
     private lateinit var showAddToTopToggle: Switch
+    private lateinit var showTodoCountToggle: Switch
     private lateinit var dateFormatInput: EditText
     private lateinit var themeGroup: RadioGroup
     private var selectedAccentColor: String = "#D97757"
@@ -85,6 +86,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         sortUncheckedToggle = findViewById(R.id.config_sort_unchecked)
         tapCheckboxOnlyToggle = findViewById(R.id.config_tap_checkbox_only)
         showAddToTopToggle = findViewById(R.id.config_show_add_to_top)
+        showTodoCountToggle = findViewById(R.id.config_show_todo_count)
         dateFormatInput = findViewById(R.id.config_date_format)
         themeGroup = findViewById(R.id.config_theme_group)
 
@@ -150,6 +152,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         sortUncheckedToggle.isChecked = vaultManager.sortUnchecked
         tapCheckboxOnlyToggle.isChecked = vaultManager.tapCheckboxOnly
         showAddToTopToggle.isChecked = vaultManager.showAddToTop
+        showTodoCountToggle.isChecked = vaultManager.showTodoCount
         dateFormatInput.setText(vaultManager.dateFormat)
 
         transparencySeekBar.progress = vaultManager.widgetAlpha
@@ -279,7 +282,8 @@ class WidgetConfigActivity : AppCompatActivity() {
             addToTop = vaultManager.addToTop,
             showAddToTop = showAddToTopToggle.isChecked,
             widgetTheme = if (themeGroup.checkedRadioButtonId == R.id.config_theme_light) "light" else "dark",
-            accentColor = selectedAccentColor
+            accentColor = selectedAccentColor,
+            showTodoCount = showTodoCountToggle.isChecked
         )
 
         // Trigger update for this specific widget
@@ -296,5 +300,12 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
         setResult(RESULT_OK, resultValue)
         finish()
+
+        // Go back to home screen instead of app
+        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        startActivity(homeIntent)
     }
 }

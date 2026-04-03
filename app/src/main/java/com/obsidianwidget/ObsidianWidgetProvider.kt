@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.view.View
 import android.widget.RemoteViews
 
@@ -60,10 +61,12 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         when (intent.action) {
-            ACTION_REFRESH, Intent.ACTION_USER_PRESENT -> updateAllWidgets(context)
+            ACTION_REFRESH -> updateAllWidgets(context)
             ACTION_CAPTURE -> {
+                val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
                 val captureIntent = Intent(context, QuickCaptureActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    putExtra(EXTRA_WIDGET_ID, widgetId)
                 }
                 context.startActivity(captureIntent)
             }
@@ -93,15 +96,11 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 }
                 val lineIndex = intent.getIntExtra(EXTRA_LINE_INDEX, -1)
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
-                if (lineIndex >= 0) {
+                if (lineIndex >= 0 && widgetId >= 0) {
                     val vaultManager = VaultManager(context, widgetId)
                     vaultManager.toggleChecklistItem(lineIndex)
-                    // Notify the widget data changed so ListView refreshes
                     val appWidgetManager = AppWidgetManager.getInstance(context)
-                    val widgetIds = appWidgetManager.getAppWidgetIds(
-                        ComponentName(context, ObsidianWidgetProvider::class.java)
-                    )
-                    appWidgetManager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_checklist)
+                    updateWidget(context, appWidgetManager, widgetId)
                 }
             }
             ACTION_NAV_LEFT, ACTION_NAV_RIGHT -> {
@@ -125,11 +124,22 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         val vaultManager = VaultManager(context, appWidgetId)
 
         // Set title based on mode
+        val noteCount = if (vaultManager.noteMode == VaultManager.NoteMode.PINNED) vaultManager.getPinnedNoteCount() else 0
         views.setTextViewText(R.id.widget_date, vaultManager.getWidgetTitle())
 
         // Check if note has checklist items
         val allItems = vaultManager.parseChecklist()
         val hasChecklist = allItems.any { !it.isPlainText }
+
+        // Show TODO count if enabled
+        if (vaultManager.showTodoCount && hasChecklist) {
+            val unchecked = allItems.count { !it.isPlainText && !it.isChecked }
+            val total = allItems.count { !it.isPlainText }
+            views.setTextViewText(R.id.widget_todo_count, "$unchecked of $total remaining")
+            views.setViewVisibility(R.id.widget_todo_count, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_todo_count, View.GONE)
+        }
 
         if (hasChecklist) {
             // Show interactive checklist ListView
@@ -180,11 +190,22 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             createActionIntent(context, ACTION_ADD, appWidgetId)
         )
 
-        // Title click opens note in Obsidian
+        // Title click always opens note in Obsidian
         views.setOnClickPendingIntent(
             R.id.widget_date,
             createActionIntent(context, ACTION_OPEN, appWidgetId)
         )
+
+        // Cycle note arrow (visible only for multi-note)
+        if (noteCount > 1) {
+            views.setViewVisibility(R.id.widget_cycle_note, View.VISIBLE)
+            views.setOnClickPendingIntent(
+                R.id.widget_cycle_note,
+                createActionIntent(context, ACTION_NAV_RIGHT, appWidgetId)
+            )
+        } else {
+            views.setViewVisibility(R.id.widget_cycle_note, View.GONE)
+        }
 
         // Settings button opens widget config
         val configIntent = Intent(context, WidgetConfigActivity::class.java).apply {
@@ -217,6 +238,12 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             if (vaultManager.showButtons) View.VISIBLE else View.GONE
         )
 
+        // Absorb taps on empty space so they don't trigger launcher reconfigure
+        views.setOnClickPendingIntent(
+            R.id.widget_root,
+            createActionIntent(context, ACTION_REFRESH, appWidgetId)
+        )
+
         // Apply widget transparency
         views.setFloat(R.id.widget_root, "setAlpha", vaultManager.widgetAlpha / 100f)
 
@@ -227,22 +254,18 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             if (isDark) R.drawable.widget_background else R.drawable.widget_background_light)
         views.setTextColor(R.id.widget_date, colors.text)
         views.setTextColor(R.id.widget_note_preview, colors.textSecondary)
+        views.setTextColor(R.id.widget_todo_count, colors.textSecondary)
+
+        // Tint header icons to match theme
+        views.setInt(R.id.widget_refresh, "setColorFilter", colors.text)
+        views.setInt(R.id.widget_settings, "setColorFilter", colors.text)
+        views.setInt(R.id.widget_cycle_note, "setColorFilter", colors.text)
 
         // Tint accent-colored buttons (preserves rounded drawable shape)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val accentTint = ColorStateList.valueOf(colors.accent)
             views.setColorStateList(R.id.widget_btn_capture, "setBackgroundTintList", accentTint)
             views.setColorStateList(R.id.widget_add, "setBackgroundTintList", accentTint)
-        }
-
-        // Show/hide navigation arrows for multi-note
-        val noteCount = if (vaultManager.noteMode == VaultManager.NoteMode.PINNED) vaultManager.getPinnedNoteCount() else 0
-        val showNav = noteCount > 1
-        views.setViewVisibility(R.id.widget_nav_left, if (showNav) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.widget_nav_right, if (showNav) View.VISIBLE else View.GONE)
-        if (showNav) {
-            views.setOnClickPendingIntent(R.id.widget_nav_left, createActionIntent(context, ACTION_NAV_LEFT, appWidgetId))
-            views.setOnClickPendingIntent(R.id.widget_nav_right, createActionIntent(context, ACTION_NAV_RIGHT, appWidgetId))
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -262,12 +285,13 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
     private fun openObsidian(context: Context, widgetId: Int) {
         val vaultManager = VaultManager(context, widgetId)
         val vaultName = vaultManager.vaultName
+        val vaultUri = vaultManager.vaultUri
 
         // Try to open the specific note in Obsidian via its URI scheme
         if (vaultName != null) {
             val noteName = when (vaultManager.noteMode) {
                 VaultManager.NoteMode.PINNED ->
-                    vaultManager.getCurrentPinnedNoteName()?.removeSuffix(".md")
+                    resolvePinnedNotePath(vaultUri, vaultManager)
                 VaultManager.NoteMode.DAILY -> {
                     val folder = vaultManager.dailyFolder
                     val date = java.time.LocalDate.now()
@@ -278,11 +302,16 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
 
             if (noteName != null) {
                 try {
-                    val obsidianUri = android.net.Uri.parse(
-                        "obsidian://open?vault=${android.net.Uri.encode(vaultName)}&file=${android.net.Uri.encode(noteName)}"
-                    )
+                    val obsidianUri = Uri.Builder()
+                        .scheme("obsidian")
+                        .authority("open")
+                        .appendQueryParameter("vault", vaultName)
+                        .appendQueryParameter("file", noteName)
+                        .build()
                     val deepLinkIntent = Intent(Intent.ACTION_VIEW, obsidianUri).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
                     }
                     context.startActivity(deepLinkIntent)
                     return
@@ -310,5 +339,31 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         context.startActivity(fallbackIntent)
+    }
+
+    private fun resolvePinnedNotePath(vaultUri: Uri?, vaultManager: VaultManager): String? {
+        val fallbackName = vaultManager.getCurrentPinnedNoteName()?.removeSuffix(".md")
+        val noteUri = vaultManager.getCurrentPinnedNoteUri() ?: return fallbackName
+        val rootUri = vaultUri ?: return fallbackName
+
+        return try {
+            val treeId = DocumentsContract.getTreeDocumentId(rootUri)
+            val docId = DocumentsContract.getDocumentId(noteUri)
+
+            val relativePath = when {
+                docId.startsWith("$treeId/") -> docId.removePrefix("$treeId/")
+                docId == treeId -> ""
+                ':' in docId -> docId.substringAfter(':')
+                else -> docId
+            }
+
+            relativePath
+                .trim('/')
+                .takeIf { it.isNotEmpty() }
+                ?.removeSuffix(".md")
+                ?: fallbackName
+        } catch (_: Exception) {
+            fallbackName
+        }
     }
 }

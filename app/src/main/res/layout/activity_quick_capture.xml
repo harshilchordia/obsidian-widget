@@ -2,12 +2,13 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/obsidian_bg"
+    android:background="@drawable/dialog_background"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="14dp"
     android:minWidth="300dp">
 
     <TextView
+        android:id="@+id/capture_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Quick Capture"
@@ -65,28 +66,30 @@
         <Button
             android:id="@+id/btn_cancel"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="36dp"
+            android:minHeight="0dp"
             android:background="@drawable/button_outline"
             android:text="@string/cancel"
             android:textColor="@color/obsidian_text_secondary"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textAllCaps="false"
             android:fontFamily="sans-serif-medium"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:layout_marginEnd="10dp" />
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:layout_marginEnd="8dp" />
 
         <Button
             android:id="@+id/btn_save"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="36dp"
+            android:minHeight="0dp"
             android:background="@drawable/button_background"
             android:text="@string/save"
             android:textColor="@color/white"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textAllCaps="false"
             android:fontFamily="sans-serif-medium"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp" />
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
     </LinearLayout>
 </LinearLayout>

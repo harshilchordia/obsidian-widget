@@ -109,6 +109,9 @@ class ChecklistRemoteViewsFactory(
             val displayText = if (item.isBullet) "•  ${item.text}" else item.text
             views.setTextViewText(R.id.text_item_content, markdownToHtml(displayText))
             views.setTextColor(R.id.text_item_content, themeColors.text)
+            val density = context.resources.displayMetrics.density
+            val indentPx = (item.indentLevel * 16 * density).toInt()
+            views.setViewPadding(R.id.text_item_root, indentPx + (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
             val url = extractFirstUrl(item.text)
             if (url != null) {
                 views.setOnClickFillInIntent(R.id.text_item_root, Intent().apply {
@@ -122,11 +125,21 @@ class ChecklistRemoteViewsFactory(
 
         val views = RemoteViews(context.packageName, R.layout.widget_checklist_item)
 
-        // Set checkbox icon
-        views.setImageViewResource(
-            R.id.checklist_checkbox,
-            if (item.isChecked) R.drawable.ic_checkbox_checked else R.drawable.ic_checkbox_unchecked
-        )
+        // Always set padding (reset for non-indented, indent for nested)
+        val density = context.resources.displayMetrics.density
+        val indentPx = (item.indentLevel * 16 * density).toInt()
+        views.setViewPadding(R.id.checklist_item_root, indentPx + (4 * density).toInt(), (6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt())
+
+        // Set checkbox: circle bg tinted to accent/secondary, white checkmark overlay
+        if (item.isChecked) {
+            views.setImageViewResource(R.id.checklist_checkbox_bg, R.drawable.ic_checkbox_checked)
+            views.setInt(R.id.checklist_checkbox_bg, "setColorFilter", themeColors.accent)
+            views.setViewVisibility(R.id.checklist_checkbox_mark, android.view.View.VISIBLE)
+        } else {
+            views.setImageViewResource(R.id.checklist_checkbox_bg, R.drawable.ic_checkbox_unchecked)
+            views.setInt(R.id.checklist_checkbox_bg, "setColorFilter", themeColors.textSecondary)
+            views.setViewVisibility(R.id.checklist_checkbox_mark, android.view.View.GONE)
+        }
 
         // Set text with strikethrough if checked
         views.setTextViewText(R.id.checklist_text, markdownToHtml(item.text))

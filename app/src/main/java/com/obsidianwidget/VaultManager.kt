@@ -23,7 +23,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val isChecked: Boolean,
         val isPlainText: Boolean = false,
         val isHeading: Boolean = false,
-        val isBullet: Boolean = false
+        val isBullet: Boolean = false,
+        val indentLevel: Int = 0
     )
 
     companion object {
@@ -48,6 +49,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_SHOW_ADD_TO_TOP = "show_add_to_top"
         private const val KEY_WIDGET_THEME = "widget_theme"
         private const val KEY_ACCENT_COLOR = "accent_color"
+        private const val KEY_SHOW_TODO_COUNT = "show_todo_count"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
@@ -73,6 +75,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_SHOW_ADD_TO_TOP}_$widgetId")
                 .remove("${KEY_WIDGET_THEME}_$widgetId")
                 .remove("${KEY_ACCENT_COLOR}_$widgetId")
+                .remove("${KEY_SHOW_TODO_COUNT}_$widgetId")
                 .apply()
         }
     }
@@ -215,6 +218,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getString(wk(KEY_ACCENT_COLOR), "#D97757") ?: "#D97757"
         set(value) = prefs.edit().putString(wk(KEY_ACCENT_COLOR), value).apply()
 
+    var showTodoCount: Boolean
+        get() = prefs.getBoolean(wk(KEY_SHOW_TODO_COUNT), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_TODO_COUNT), value).apply()
+
     fun getThemeColors(): ThemeColors {
         val isDark = widgetTheme == "dark"
         val accent = try { android.graphics.Color.parseColor(accentColor) } catch (_: Exception) { 0xFFD97757.toInt() }
@@ -259,7 +266,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         addToTop: Boolean,
         showAddToTop: Boolean,
         widgetTheme: String,
-        accentColor: String
+        accentColor: String,
+        showTodoCount: Boolean
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -273,6 +281,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putBoolean(wk(KEY_SHOW_ADD_TO_TOP), showAddToTop)
             .putString(wk(KEY_WIDGET_THEME), widgetTheme)
             .putString(wk(KEY_ACCENT_COLOR), accentColor)
+            .putBoolean(wk(KEY_SHOW_TODO_COUNT), showTodoCount)
             .commit()
     }
 
@@ -434,17 +443,21 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             val match = CHECKLIST_REGEX.matchEntire(line)
             val headingMatch = HEADING_REGEX.matchEntire(line)
             if (match != null) {
+                val indent = match.groupValues[1]
+                val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
                 val checked = match.groupValues[2].lowercase() == "x"
                 val text = match.groupValues[3].trim()
-                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked))
+                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked, indentLevel = indentLevel))
             } else if (headingMatch != null) {
                 val text = headingMatch.groupValues[2].trim()
                 items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isHeading = true))
             } else {
                 val bulletMatch = BULLET_REGEX.matchEntire(line)
                 if (bulletMatch != null) {
+                    val indent = bulletMatch.groupValues[1]
+                    val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
                     val text = bulletMatch.groupValues[2].trim()
-                    items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isBullet = true))
+                    items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isBullet = true, indentLevel = indentLevel))
                 } else if (line.isNotBlank()) {
                     items.add(ChecklistItem(lineIndex = index, text = line.trim(), isChecked = false, isPlainText = true))
                 }

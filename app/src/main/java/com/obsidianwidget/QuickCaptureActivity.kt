@@ -23,6 +23,7 @@ class QuickCaptureActivity : AppCompatActivity() {
         val widgetId = intent.getIntExtra(ObsidianWidgetProvider.EXTRA_WIDGET_ID, -1)
         val widgetVaultManager = if (widgetId >= 0) VaultManager(this, widgetId) else vaultManager
         val captureInput = findViewById<EditText>(R.id.capture_input)
+        val captureTitle = findViewById<android.widget.TextView>(R.id.capture_title)
         val addToTopToggle = findViewById<Switch>(R.id.capture_add_to_top)
         val addToTopRow = findViewById<View>(R.id.capture_add_to_top_row)
 
@@ -33,7 +34,17 @@ class QuickCaptureActivity : AppCompatActivity() {
         }
 
         if (appendToWidget) {
-            captureInput.hint = "Add to ${widgetVaultManager.getWidgetTitle()}..."
+            val noteName = widgetVaultManager.getWidgetTitle()
+            captureTitle.text = "Add to $noteName"
+            captureInput.hint = "Type something to add..."
+            captureInput.inputType = android.text.InputType.TYPE_CLASS_TEXT
+            captureInput.layoutParams.height = resources.getDimensionPixelSize(
+                android.R.dimen.app_icon_size) // ~48dp, compact
+            captureInput.setSingleLine(false)
+            captureInput.maxLines = 3
+        } else {
+            captureTitle.text = "Quick Note"
+            captureInput.hint = "Capture a thought..."
         }
 
         findViewById<Button>(R.id.btn_cancel).setOnClickListener {
