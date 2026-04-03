@@ -488,20 +488,5 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- Save Button - always visible at bottom -->
-    <Button
-        android:id="@+id/config_save"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="16dp"
-        android:background="@drawable/button_background"
-        android:text="@string/save_widget"
-        android:textColor="@color/white"
-        android:textSize="15sp"
-        android:textAllCaps="false"
-        android:fontFamily="sans-serif-medium" />
 
 </LinearLayout>

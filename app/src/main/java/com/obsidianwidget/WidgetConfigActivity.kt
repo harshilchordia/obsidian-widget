@@ -14,12 +14,14 @@ import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
 class WidgetConfigActivity : AppCompatActivity() {
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var finishedSaving = false
     private lateinit var vaultManager: VaultManager
     private lateinit var vaultPathText: TextView
     private lateinit var dailyFolderInput: EditText
@@ -116,9 +118,11 @@ class WidgetConfigActivity : AppCompatActivity() {
             updateModeSections(checkedId == R.id.config_radio_pinned)
         }
 
-        findViewById<Button>(R.id.config_save).setOnClickListener {
-            saveAndFinish()
-        }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                saveAndFinish()
+            }
+        })
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -268,7 +272,14 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
     }
 
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        saveAndFinish()
+    }
+
     private fun saveAndFinish() {
+        if (finishedSaving) return
+        finishedSaving = true
         // Use batch commit for reliable persistence
         vaultManager.saveWidgetSettings(
             dailyFolder = dailyFolderInput.text.toString().trim(),
@@ -300,12 +311,5 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
         setResult(RESULT_OK, resultValue)
         finish()
-
-        // Go back to home screen instead of app
-        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        startActivity(homeIntent)
     }
 }
