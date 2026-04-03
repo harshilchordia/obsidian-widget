@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.view.View
 import android.widget.RemoteViews
 
@@ -284,12 +285,13 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
     private fun openObsidian(context: Context, widgetId: Int) {
         val vaultManager = VaultManager(context, widgetId)
         val vaultName = vaultManager.vaultName
+        val vaultUri = vaultManager.vaultUri
 
         // Try to open the specific note in Obsidian via its URI scheme
         if (vaultName != null) {
             val noteName = when (vaultManager.noteMode) {
                 VaultManager.NoteMode.PINNED ->
-                    vaultManager.getCurrentPinnedNoteName()?.removeSuffix(".md")
+                    resolvePinnedNotePath(vaultUri, vaultManager)
                 VaultManager.NoteMode.DAILY -> {
                     val folder = vaultManager.dailyFolder
                     val date = java.time.LocalDate.now()
@@ -300,9 +302,12 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
 
             if (noteName != null) {
                 try {
-                    val obsidianUri = android.net.Uri.parse(
-                        "obsidian://open?vault=${android.net.Uri.encode(vaultName)}&file=${android.net.Uri.encode(noteName)}"
-                    )
+                    val obsidianUri = Uri.Builder()
+                        .scheme("obsidian")
+                        .authority("open")
+                        .appendQueryParameter("vault", vaultName)
+                        .appendQueryParameter("file", noteName)
+                        .build()
                     val deepLinkIntent = Intent(Intent.ACTION_VIEW, obsidianUri).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -334,5 +339,31 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         context.startActivity(fallbackIntent)
+    }
+
+    private fun resolvePinnedNotePath(vaultUri: Uri?, vaultManager: VaultManager): String? {
+        val fallbackName = vaultManager.getCurrentPinnedNoteName()?.removeSuffix(".md")
+        val noteUri = vaultManager.getCurrentPinnedNoteUri() ?: return fallbackName
+        val rootUri = vaultUri ?: return fallbackName
+
+        return try {
+            val treeId = DocumentsContract.getTreeDocumentId(rootUri)
+            val docId = DocumentsContract.getDocumentId(noteUri)
+
+            val relativePath = when {
+                docId.startsWith("$treeId/") -> docId.removePrefix("$treeId/")
+                docId == treeId -> ""
+                ':' in docId -> docId.substringAfter(':')
+                else -> docId
+            }
+
+            relativePath
+                .trim('/')
+                .takeIf { it.isNotEmpty() }
+                ?.removeSuffix(".md")
+                ?: fallbackName
+        } catch (_: Exception) {
+            fallbackName
+        }
     }
 }
