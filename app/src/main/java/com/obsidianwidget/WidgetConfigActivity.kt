@@ -2,8 +2,6 @@ package com.obsidianwidget
 
 import android.appwidget.AppWidgetManager
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -15,13 +13,9 @@ import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 
-class WidgetConfigActivity : AppCompatActivity() {
+class WidgetConfigActivity : BaseWidgetConfigActivity() {
 
-    private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    private var isPickerOpen = false
-    private lateinit var vaultManager: VaultManager
     private lateinit var vaultPathText: TextView
     private lateinit var dailyFolderInput: EditText
     private lateinit var noteModeGroup: RadioGroup
@@ -37,18 +31,11 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var showTodoCountToggle: Switch
     private lateinit var dateFormatInput: EditText
     private lateinit var themeGroup: RadioGroup
-    private var selectedAccentColor: String = "#D97757"
-    private val colorSwatchIds = listOf(
+
+    override val colorSwatchIds = listOf(
         R.id.color_terracotta, R.id.color_purple, R.id.color_blue, R.id.color_green,
         R.id.color_red, R.id.color_teal, R.id.color_pink, R.id.color_amber
     )
-
-    private val folderPicker = registerForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        isPickerOpen = false
-        uri?.let { onVaultSelected(it) }
-    }
 
     private val notePicker = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -59,29 +46,10 @@ class WidgetConfigActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Default result = cancelled (so pressing back cancels widget add)
-        setResult(RESULT_CANCELED)
+        if (isFinishing) return
 
         setContentView(R.layout.activity_widget_config)
 
-        // Get the widget ID from the intent FIRST
-        appWidgetId = intent?.extras?.getInt(
-            AppWidgetManager.EXTRA_APPWIDGET_ID,
-            AppWidgetManager.INVALID_APPWIDGET_ID
-        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-
-        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
-            finish()
-            return
-        }
-
-        // Set result eagerly so ANY future finish() delivers success to the launcher
-        setResult(RESULT_OK, Intent().apply {
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-        })
-
-        vaultManager = VaultManager(this, appWidgetId)
         vaultPathText = findViewById(R.id.config_vault_path)
         dailyFolderInput = findViewById(R.id.config_daily_folder)
         noteModeGroup = findViewById(R.id.config_note_mode_group)
@@ -113,8 +81,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         })
 
         findViewById<Button>(R.id.config_select_vault).setOnClickListener {
-            isPickerOpen = true
-            folderPicker.launch(null)
+            launchVaultPicker()
         }
 
         findViewById<Button>(R.id.config_add_note).setOnClickListener {
@@ -131,23 +98,11 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-
-        val newWidgetId = intent?.extras?.getInt(
-            AppWidgetManager.EXTRA_APPWIDGET_ID,
-            AppWidgetManager.INVALID_APPWIDGET_ID
-        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-
-        if (newWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-            appWidgetId = newWidgetId
-            vaultManager = VaultManager(this, appWidgetId)
-            loadSettings()
-        }
+    override fun onVaultNameChanged(name: String) {
+        vaultPathText.text = name
     }
 
-    private fun loadSettings() {
+    override fun loadSettings() {
         if (vaultManager.isVaultConfigured) {
             vaultPathText.text = vaultManager.vaultName ?: "Selected"
         }
@@ -179,16 +134,6 @@ class WidgetConfigActivity : AppCompatActivity() {
     private fun updateModeSections(isPinned: Boolean) {
         pinnedSection.visibility = if (isPinned) View.VISIBLE else View.GONE
         dailySection.visibility = if (isPinned) View.GONE else View.VISIBLE
-    }
-
-    private fun onVaultSelected(uri: Uri) {
-        contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-        vaultManager.vaultUri = uri
-        vaultManager.vaultName = uri.lastPathSegment?.substringAfterLast(':') ?: "Vault"
-        vaultPathText.text = vaultManager.vaultName
     }
 
     private fun onNoteSelected(uri: Uri) {
@@ -242,50 +187,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupColorSwatches() {
-        for (id in colorSwatchIds) {
-            val swatch = findViewById<View>(id)
-            val colorHex = swatch.tag as String
-            val color = Color.parseColor(colorHex)
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(color)
-            }
-            swatch.background = bg
-            swatch.setOnClickListener {
-                selectedAccentColor = colorHex
-                highlightSelectedColor()
-            }
-        }
-    }
-
-    private fun highlightSelectedColor() {
-        for (id in colorSwatchIds) {
-            val swatch = findViewById<View>(id)
-            val colorHex = swatch.tag as String
-            val color = Color.parseColor(colorHex)
-            val isSelected = colorHex.equals(selectedAccentColor, ignoreCase = true)
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(color)
-                if (isSelected) {
-                    setStroke(4, Color.WHITE)
-                } else {
-                    setStroke(0, Color.TRANSPARENT)
-                }
-            }
-            swatch.background = bg
-        }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (!isPickerOpen) {
-            saveAndFinish()
-        }
-    }
-
-    private fun saveAndFinish() {
+    override fun saveAndFinish() {
         vaultManager.saveWidgetSettings(
             dailyFolder = dailyFolderInput.text.toString().trim(),
             dateFormat = dateFormatInput.text.toString().trim().ifBlank { "yyyy-MM-dd" },

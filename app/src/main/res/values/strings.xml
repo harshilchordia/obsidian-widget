@@ -15,11 +15,15 @@
     <string name="save_widget">Save Widget</string>
     <string name="note_saved">Note saved!</string>
     <string name="error_saving">Error saving note</string>
+    <string name="error_placeholder_not_found">Placeholder not found in daily note</string>
     <string name="setup_instructions">Add the Obsidian Widget to your home screen to see daily notes and quickly capture ideas.</string>
     <string name="select_vault_folder">Select Vault Folder</string>
     <string name="daily_notes_folder">Daily Notes Folder (optional)</string>
     <string name="daily_notes_hint">e.g. Daily Notes</string>
     <string name="date_format_label">Date Format</string>
+    <string name="daily_note_path_label">Daily note path</string>
+    <string name="date_format_hint">e.g. YYYY/MM/YYYY-MM-DD</string>
+    <string name="date_format_help">Use Obsidian tokens (YYYY, MM, DD). Slashes create folders automatically.</string>
     <string name="vault_not_configured">Please select a vault folder first</string>
     <string name="note_mode_label">Widget Shows</string>
     <string name="mode_daily_note">Daily Note</string>
@@ -28,4 +32,18 @@
     <string name="no_note_selected">No note selected</string>
     <string name="select_note">Pick Note</string>
     <string name="note_selected">%s</string>
+    <string name="quick_capture_widget_description">Quick capture to daily note with one tap</string>
+    <string name="quick_capture_config_title">Quick Capture Widget</string>
+    <string name="section_vault">VAULT</string>
+    <string name="section_capture">CAPTURE</string>
+    <string name="section_appearance">APPEARANCE</string>
+    <string name="capture_timestamp_enabled">Add timestamp</string>
+    <string name="capture_timestamp_format">Timestamp format</string>
+    <string name="capture_insert_mode">Insert position</string>
+    <string name="capture_insert_start">Beginning of note</string>
+    <string name="capture_insert_end">End of note</string>
+    <string name="capture_insert_placeholder">At placeholder</string>
+    <string name="capture_placeholder_label">Placeholder text</string>
+    <string name="capture_placeholder_hint">e.g. &lt;!-- capture --&gt;</string>
+    <string name="opacity_label">Opacity: %d%%</string>
 </resources>

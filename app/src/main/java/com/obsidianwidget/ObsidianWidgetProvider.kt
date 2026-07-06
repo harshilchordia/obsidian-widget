@@ -292,12 +292,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             val noteName = when (vaultManager.noteMode) {
                 VaultManager.NoteMode.PINNED ->
                     resolvePinnedNotePath(vaultUri, vaultManager)
-                VaultManager.NoteMode.DAILY -> {
-                    val folder = vaultManager.dailyFolder
-                    val date = java.time.LocalDate.now()
-                        .format(java.time.format.DateTimeFormatter.ofPattern(vaultManager.dateFormat))
-                    if (folder.isNotBlank()) "$folder/$date" else date
-                }
+                VaultManager.NoteMode.DAILY -> vaultManager.getDailyNoteRelativePath()
             }
 
             if (noteName != null) {

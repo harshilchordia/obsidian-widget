@@ -44,6 +44,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".QuickCaptureConfigActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ObsidianWidget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".ObsidianWidgetProvider"
             android:exported="true">
@@ -54,6 +64,17 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".QuickCaptureWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_capture_widget_info" />
         </receiver>
 
         <service

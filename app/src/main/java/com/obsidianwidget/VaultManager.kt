@@ -17,6 +17,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     enum class NoteMode { DAILY, PINNED }
 
+    enum class CaptureInsertMode { START, END, PLACEHOLDER }
+
+    enum class CaptureResult { SUCCESS, ERROR, PLACEHOLDER_NOT_FOUND }
+
     data class ChecklistItem(
         val lineIndex: Int,
         val text: String,
@@ -50,7 +54,12 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_WIDGET_THEME = "widget_theme"
         private const val KEY_ACCENT_COLOR = "accent_color"
         private const val KEY_SHOW_TODO_COUNT = "show_todo_count"
+        private const val KEY_CAPTURE_TIMESTAMP_ENABLED = "capture_timestamp_enabled"
+        private const val KEY_CAPTURE_TIMESTAMP_FORMAT = "capture_timestamp_format"
+        private const val KEY_CAPTURE_INSERT_MODE = "capture_insert_mode"
+        private const val KEY_CAPTURE_PLACEHOLDER = "capture_placeholder"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
+        private const val DEFAULT_CAPTURE_TIMESTAMP_FORMAT = "HH:mm"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
         private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.+)$""")
@@ -58,25 +67,14 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
         fun deleteWidgetPrefs(context: Context, widgetId: Int) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit()
-                .remove("${KEY_DAILY_FOLDER}_$widgetId")
-                .remove("${KEY_DATE_FORMAT}_$widgetId")
-                .remove("${KEY_NOTE_MODE}_$widgetId")
-                .remove("${KEY_PINNED_NOTE_URI}_$widgetId")
-                .remove("${KEY_PINNED_NOTE_NAME}_$widgetId")
-                .remove("${KEY_SHOW_BUTTONS}_$widgetId")
-                .remove("${KEY_SORT_UNCHECKED}_$widgetId")
-                .remove("${KEY_PINNED_NOTE_URIS}_$widgetId")
-                .remove("${KEY_PINNED_NOTE_NAMES}_$widgetId")
-                .remove("${KEY_CURRENT_NOTE_INDEX}_$widgetId")
-                .remove("${KEY_WIDGET_ALPHA}_$widgetId")
-                .remove("${KEY_TAP_CHECKBOX_ONLY}_$widgetId")
-                .remove("${KEY_ADD_TO_TOP}_$widgetId")
-                .remove("${KEY_SHOW_ADD_TO_TOP}_$widgetId")
-                .remove("${KEY_WIDGET_THEME}_$widgetId")
-                .remove("${KEY_ACCENT_COLOR}_$widgetId")
-                .remove("${KEY_SHOW_TODO_COUNT}_$widgetId")
-                .apply()
+            // Per-widget keys are exactly those wk() suffixes with "_<widgetId>";
+            // no global key ends in "_<digits>", so a suffix sweep is safe and
+            // automatically covers keys added later.
+            val editor = prefs.edit()
+            prefs.all.keys
+                .filter { it.endsWith("_$widgetId") }
+                .forEach { editor.remove(it) }
+            editor.apply()
         }
     }
 
@@ -222,6 +220,32 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getBoolean(wk(KEY_SHOW_TODO_COUNT), false)
         set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_TODO_COUNT), value).apply()
 
+    var captureTimestampEnabled: Boolean
+        get() = prefs.getBoolean(wk(KEY_CAPTURE_TIMESTAMP_ENABLED), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_CAPTURE_TIMESTAMP_ENABLED), value).apply()
+
+    var captureTimestampFormat: String
+        get() = prefs.getString(
+            wk(KEY_CAPTURE_TIMESTAMP_FORMAT),
+            DEFAULT_CAPTURE_TIMESTAMP_FORMAT
+        ) ?: DEFAULT_CAPTURE_TIMESTAMP_FORMAT
+        set(value) = prefs.edit().putString(wk(KEY_CAPTURE_TIMESTAMP_FORMAT), value).apply()
+
+    var captureInsertMode: CaptureInsertMode
+        get() {
+            val stored = prefs.getString(wk(KEY_CAPTURE_INSERT_MODE), CaptureInsertMode.END.name)
+            return try {
+                CaptureInsertMode.valueOf(stored ?: CaptureInsertMode.END.name)
+            } catch (_: IllegalArgumentException) {
+                CaptureInsertMode.END
+            }
+        }
+        set(value) = prefs.edit().putString(wk(KEY_CAPTURE_INSERT_MODE), value.name).apply()
+
+    var capturePlaceholder: String
+        get() = prefs.getString(wk(KEY_CAPTURE_PLACEHOLDER), "") ?: ""
+        set(value) = prefs.edit().putString(wk(KEY_CAPTURE_PLACEHOLDER), value).apply()
+
     fun getThemeColors(): ThemeColors {
         val isDark = widgetTheme == "dark"
         val accent = try { android.graphics.Color.parseColor(accentColor) } catch (_: Exception) { 0xFFD97757.toInt() }
@@ -250,6 +274,11 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val textSecondary: Int,
         val accent: Int,
         val buttonText: Int
+    )
+
+    data class DailyNoteLocation(
+        val directoryPath: String,
+        val fileName: String
     )
 
     /**
@@ -282,6 +311,34 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putString(wk(KEY_WIDGET_THEME), widgetTheme)
             .putString(wk(KEY_ACCENT_COLOR), accentColor)
             .putBoolean(wk(KEY_SHOW_TODO_COUNT), showTodoCount)
+            .commit()
+    }
+
+    /**
+     * Batch save quick-capture widget settings using commit() for reliable persistence.
+     * The whole daily-note path template (folders + date tokens) is stored in the
+     * date-format pref; the folder pref is cleared so it can't double-apply.
+     */
+    fun saveCaptureWidgetSettings(
+        dailyNotePathTemplate: String,
+        captureTimestampEnabled: Boolean,
+        captureTimestampFormat: String,
+        captureInsertMode: CaptureInsertMode,
+        capturePlaceholder: String,
+        widgetAlpha: Int,
+        widgetTheme: String,
+        accentColor: String
+    ) {
+        prefs.edit()
+            .putString(wk(KEY_DAILY_FOLDER), "")
+            .putString(wk(KEY_DATE_FORMAT), normalizeDateFormat(dailyNotePathTemplate))
+            .putBoolean(wk(KEY_CAPTURE_TIMESTAMP_ENABLED), captureTimestampEnabled)
+            .putString(wk(KEY_CAPTURE_TIMESTAMP_FORMAT), captureTimestampFormat)
+            .putString(wk(KEY_CAPTURE_INSERT_MODE), captureInsertMode.name)
+            .putString(wk(KEY_CAPTURE_PLACEHOLDER), capturePlaceholder)
+            .putInt(wk(KEY_WIDGET_ALPHA), widgetAlpha)
+            .putString(wk(KEY_WIDGET_THEME), widgetTheme)
+            .putString(wk(KEY_ACCENT_COLOR), accentColor)
             .commit()
     }
 
@@ -322,15 +379,14 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     fun readDailyNote(): String? {
         val uri = vaultUri ?: return null
         val rootDoc = DocumentFile.fromTreeUri(context, uri) ?: return null
-
-        val todayFileName = getTodayFileName()
-        val targetDir = if (dailyFolder.isNotBlank()) {
-            findSubDirectory(rootDoc, dailyFolder)
+        val location = resolveDailyNoteLocation()
+        val targetDir = if (location.directoryPath.isNotBlank()) {
+            findSubDirectory(rootDoc, location.directoryPath)
         } else {
             rootDoc
         } ?: return null
 
-        val noteFile = targetDir.findFile(todayFileName) ?: return null
+        val noteFile = targetDir.findFile(location.fileName) ?: return null
         return readFileContent(noteFile.uri)
     }
 
@@ -355,35 +411,127 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     fun appendToDailyNote(text: String): Boolean {
-        val uri = vaultUri ?: return false
-        val rootDoc = DocumentFile.fromTreeUri(context, uri) ?: return false
+        return insertIntoDailyNote(text, addToTop, null) == CaptureResult.SUCCESS
+    }
 
-        val todayFileName = getTodayFileName()
-        val targetDir = if (dailyFolder.isNotBlank()) {
-            findOrCreateSubDirectory(rootDoc, dailyFolder)
+    /**
+     * Append captured text to today's daily note using quick-capture widget settings.
+     */
+    fun captureToDailyNote(text: String): CaptureResult {
+        val mode = captureInsertMode
+        val placeholder = if (mode == CaptureInsertMode.PLACEHOLDER) {
+            capturePlaceholder.takeIf { it.isNotBlank() }
+                ?: return CaptureResult.PLACEHOLDER_NOT_FOUND
         } else {
-            rootDoc
-        } ?: return false
+            null
+        }
+        val entry = formatCaptureEntry(text)
+        return insertIntoDailyNote(entry, mode == CaptureInsertMode.START, placeholder)
+    }
 
-        val noteFile = targetDir.findFile(todayFileName)
-
-        return if (noteFile != null) {
-            // Append or prepend to existing file
-            val existing = readFileContent(noteFile.uri) ?: ""
-            val newContent = if (existing.isNotBlank()) {
-                if (addToTop) "$text\n\n$existing" else "$existing\n\n$text"
-            } else text
-            writeFileContent(noteFile.uri, newContent)
+    private fun formatCaptureEntry(text: String): String {
+        if (!captureTimestampEnabled) return text
+        val pattern = captureTimestampFormat.ifBlank { DEFAULT_CAPTURE_TIMESTAMP_FORMAT }
+        val timestamp = ObsidianDateFormat.formatDateTime(pattern) ?: return text
+        return if (text.contains('\n')) {
+            "$timestamp\n$text"
         } else {
-            // Create new file — just the captured text, no header
-            val newFile = targetDir.createFile("text/markdown", todayFileName) ?: return false
-            writeFileContent(newFile.uri, text)
+            "$timestamp - $text"
         }
     }
 
-    private fun getTodayFileName(): String {
-        val formatter = DateTimeFormatter.ofPattern(dateFormat)
-        return "${LocalDate.now().format(formatter)}.md"
+    private fun insertIntoDailyNote(
+        text: String,
+        insertAtStart: Boolean,
+        placeholder: String?
+    ): CaptureResult {
+        val uri = vaultUri ?: return CaptureResult.ERROR
+        val rootDoc = DocumentFile.fromTreeUri(context, uri) ?: return CaptureResult.ERROR
+        val location = resolveDailyNoteLocation()
+        val targetDir = if (location.directoryPath.isNotBlank()) {
+            findOrCreateSubDirectory(rootDoc, location.directoryPath)
+        } else {
+            rootDoc
+        } ?: return CaptureResult.ERROR
+
+        val noteFile = targetDir.findFile(location.fileName)
+
+        val written = if (noteFile != null) {
+            val existing = readFileContent(noteFile.uri) ?: ""
+            val newContent = when {
+                existing.isBlank() -> newNoteContent(text, placeholder)
+                placeholder != null && existing.contains(placeholder) -> {
+                    existing.replaceFirst(placeholder, "$text\n\n$placeholder")
+                }
+                placeholder != null -> return CaptureResult.PLACEHOLDER_NOT_FOUND
+                insertAtStart -> "$text\n\n$existing"
+                else -> "$existing\n\n$text"
+            }
+            writeFileContent(noteFile.uri, newContent)
+        } else {
+            val newFile = targetDir.createFile("text/markdown", location.fileName)
+                ?: return CaptureResult.ERROR
+            writeFileContent(newFile.uri, newNoteContent(text, placeholder))
+        }
+        return if (written) CaptureResult.SUCCESS else CaptureResult.ERROR
+    }
+
+    /**
+     * Content for a fresh/blank daily note: in placeholder mode the placeholder is
+     * written into the note so later captures still have an anchor to insert at.
+     */
+    private fun newNoteContent(text: String, placeholder: String?): String =
+        if (placeholder != null) "$text\n\n$placeholder" else text
+
+    private fun normalizeDateFormat(raw: String): String {
+        val trimmed = raw.trim()
+        val withoutExt = if (trimmed.endsWith(".md", ignoreCase = true)) {
+            trimmed.dropLast(3)
+        } else {
+            trimmed
+        }
+        return withoutExt.ifBlank { DEFAULT_DATE_FORMAT }
+    }
+
+    fun getDailyNotePathTemplate(): String {
+        val folder = dailyFolder.trim().trim('/')
+        val format = normalizeDateFormat(dateFormat)
+        return if (folder.isBlank()) format else "$folder/$format"
+    }
+
+    /**
+     * Resolve today's daily note folder and filename using Obsidian-style date tokens.
+     * The configured folder is used verbatim; only the date-format part may contain
+     * tokens (and slashes, which create nested folders).
+     *
+     * Examples:
+     * - folder="", format="yyyy-MM-dd" -> ("", "2026-07-06.md")
+     * - folder="Daily Notes", format="YYYY/MM/YYYY-MM-DD" -> ("Daily Notes/2026/07", "2026-07-06.md")
+     */
+    fun resolveDailyNoteLocation(date: LocalDate = LocalDate.now()): DailyNoteLocation {
+        val folder = dailyFolder.trim().trim('/')
+        val format = normalizeDateFormat(dateFormat)
+        var resolvedFormat = ObsidianDateFormat.format(format, date).trim('/')
+        if (resolvedFormat.isBlank()) {
+            resolvedFormat = date.format(DateTimeFormatter.ofPattern(DEFAULT_DATE_FORMAT))
+        }
+        val resolved = if (folder.isBlank()) resolvedFormat else "$folder/$resolvedFormat"
+
+        val slash = resolved.lastIndexOf('/')
+        val baseName = if (slash >= 0) resolved.substring(slash + 1) else resolved
+        val directoryPath = if (slash >= 0) resolved.substring(0, slash) else ""
+        val fileName = if (baseName.endsWith(".md", ignoreCase = true)) baseName else "$baseName.md"
+        return DailyNoteLocation(directoryPath, fileName)
+    }
+
+    fun getDailyNoteRelativePath(date: LocalDate = LocalDate.now()): String {
+        val location = resolveDailyNoteLocation(date)
+        val nameWithoutExt = location.fileName.removeSuffix(".md")
+        return if (location.directoryPath.isBlank()) {
+            nameWithoutExt
+        } else {
+            "${location.directoryPath}/$nameWithoutExt"
+        }
     }
 
     private fun findSubDirectory(root: DocumentFile, path: String): DocumentFile? {
@@ -508,12 +656,12 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     private fun getDailyNoteUri(): Uri? {
         val uri = vaultUri ?: return null
         val rootDoc = DocumentFile.fromTreeUri(context, uri) ?: return null
-        val todayFileName = getTodayFileName()
-        val targetDir = if (dailyFolder.isNotBlank()) {
-            findSubDirectory(rootDoc, dailyFolder)
+        val location = resolveDailyNoteLocation()
+        val targetDir = if (location.directoryPath.isNotBlank()) {
+            findSubDirectory(rootDoc, location.directoryPath)
         } else {
             rootDoc
         } ?: return null
-        return targetDir.findFile(todayFileName)?.uri
+        return targetDir.findFile(location.fileName)?.uri
     }
 }

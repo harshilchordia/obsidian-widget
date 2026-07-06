@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/quick_capture_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent"
+    android:padding="6dp">
+
+    <ImageView
+        android:id="@+id/quick_capture_circle"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:background="@null"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_capture_circle" />
+
+    <ImageView
+        android:id="@+id/quick_capture_plus"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="center"
+        android:background="@null"
+        android:contentDescription="@string/quick_capture"
+        android:src="@drawable/ic_add" />
+</FrameLayout>

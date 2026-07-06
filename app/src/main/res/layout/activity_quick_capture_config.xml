@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/obsidian_bg"
+    android:orientation="vertical">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/quick_capture_config_title"
+                android:textColor="@color/obsidian_text"
+                android:textSize="22sp"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="20dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/section_vault"
+                android:textColor="@color/obsidian_primary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:id="@+id/capture_config_vault_path"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/no_vault_selected"
+                    android:textColor="@color/obsidian_text_secondary"
+                    android:textSize="14sp" />
+
+                <Button
+                    android:id="@+id/capture_config_select_vault"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:text="@string/select_vault"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textAllCaps="false"
+                    android:fontFamily="sans-serif-medium"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/daily_note_path_label"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/capture_config_date_format"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:hint="@string/date_format_hint"
+                android:inputType="text"
+                android:padding="14dp"
+                android:textColor="@color/obsidian_text"
+                android:textColorHint="@color/obsidian_text_secondary"
+                android:textSize="14sp"
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/date_format_help"
+                android:textColor="@color/obsidian_text_secondary"
+                android:textSize="11sp"
+                android:layout_marginBottom="20dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/section_capture"
+                android:textColor="@color/obsidian_primary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/capture_timestamp_enabled"
+                    android:textColor="@color/obsidian_text"
+                    android:textSize="14sp" />
+
+                <Switch
+                    android:id="@+id/capture_config_timestamp_enabled"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:thumbTint="@color/obsidian_primary"
+                    android:trackTint="@color/obsidian_text_secondary" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/capture_timestamp_format"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/capture_config_timestamp_format"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:hint="HH:mm"
+                android:inputType="text"
+                android:padding="14dp"
+                android:textColor="@color/obsidian_text"
+                android:textColorHint="@color/obsidian_text_secondary"
+                android:textSize="14sp"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/capture_insert_mode"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <RadioGroup
+                android:id="@+id/capture_config_insert_mode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp">
+
+                <RadioButton
+                    android:id="@+id/capture_config_insert_start"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/capture_insert_start"
+                    android:textColor="@color/obsidian_text"
+                    android:buttonTint="@color/obsidian_primary" />
+
+                <RadioButton
+                    android:id="@+id/capture_config_insert_end"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/capture_insert_end"
+                    android:textColor="@color/obsidian_text"
+                    android:buttonTint="@color/obsidian_primary" />
+
+                <RadioButton
+                    android:id="@+id/capture_config_insert_placeholder"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/capture_insert_placeholder"
+                    android:textColor="@color/obsidian_text"
+                    android:buttonTint="@color/obsidian_primary" />
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/capture_placeholder_label"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/capture_config_placeholder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_background"
+                android:hint="@string/capture_placeholder_hint"
+                android:inputType="text"
+                android:padding="14dp"
+                android:textColor="@color/obsidian_text"
+                android:textColorHint="@color/obsidian_text_secondary"
+                android:textSize="14sp"
+                android:layout_marginBottom="20dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/section_appearance"
+                android:textColor="@color/obsidian_primary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Theme"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <RadioGroup
+                android:id="@+id/capture_config_theme_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <RadioButton
+                    android:id="@+id/capture_config_theme_dark"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Dark"
+                    android:textColor="@color/obsidian_text"
+                    android:buttonTint="@color/obsidian_primary" />
+
+                <RadioButton
+                    android:id="@+id/capture_config_theme_light"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Light"
+                    android:textColor="@color/obsidian_text"
+                    android:buttonTint="@color/obsidian_primary" />
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Accent Color"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="16dp">
+
+                <View
+                    android:id="@+id/capture_color_terracotta"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_margin="6dp"
+                    android:tag="#D97757" />
+
+                <View
+                    android:id="@+id/capture_color_purple"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_margin="6dp"
+                    android:tag="#7C5FC7" />
+
+                <View
+                    android:id="@+id/capture_color_blue"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_margin="6dp"
+                    android:tag="#4A9EF5" />
+
+                <View
+                    android:id="@+id/capture_color_green"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_margin="6dp"
+                    android:tag="#4CAF50" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/capture_config_transparency_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Opacity: 100%"
+                android:textColor="@color/obsidian_text"
+                android:textSize="14sp"
+                android:layout_marginBottom="8dp" />
+
+            <SeekBar
+                android:id="@+id/capture_config_transparency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="100"
+                android:progressTint="@color/obsidian_primary"
+                android:thumbTint="@color/obsidian_primary"
+                android:layout_marginBottom="20dp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/capture_config_save"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_margin="24dp"
+        android:background="@drawable/button_background"
+        android:text="@string/save_widget"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:textAllCaps="false"
+        android:fontFamily="sans-serif-medium" />
+</LinearLayout>
