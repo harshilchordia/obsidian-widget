@@ -35,6 +35,8 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var tapCheckboxOnlyToggle: Switch
     private lateinit var showAddToTopToggle: Switch
     private lateinit var showTodoCountToggle: Switch
+    private lateinit var hideFrontmatterToggle: Switch
+    private lateinit var startAfterHeadingToggle: Switch
     private lateinit var dateFormatInput: EditText
     private lateinit var themeGroup: RadioGroup
     private var selectedAccentColor: String = "#D97757"
@@ -95,6 +97,8 @@ class WidgetConfigActivity : AppCompatActivity() {
         tapCheckboxOnlyToggle = findViewById(R.id.config_tap_checkbox_only)
         showAddToTopToggle = findViewById(R.id.config_show_add_to_top)
         showTodoCountToggle = findViewById(R.id.config_show_todo_count)
+        hideFrontmatterToggle = findViewById(R.id.config_hide_frontmatter)
+        startAfterHeadingToggle = findViewById(R.id.config_start_after_heading)
         dateFormatInput = findViewById(R.id.config_date_format)
         themeGroup = findViewById(R.id.config_theme_group)
 
@@ -163,6 +167,8 @@ class WidgetConfigActivity : AppCompatActivity() {
         tapCheckboxOnlyToggle.isChecked = vaultManager.tapCheckboxOnly
         showAddToTopToggle.isChecked = vaultManager.showAddToTop
         showTodoCountToggle.isChecked = vaultManager.showTodoCount
+        hideFrontmatterToggle.isChecked = vaultManager.hideFrontmatter
+        startAfterHeadingToggle.isChecked = vaultManager.startAfterFirstHeading
         dateFormatInput.setText(vaultManager.dateFormat)
 
         transparencySeekBar.progress = vaultManager.widgetAlpha
@@ -299,7 +305,9 @@ class WidgetConfigActivity : AppCompatActivity() {
             showAddToTop = showAddToTopToggle.isChecked,
             widgetTheme = if (themeGroup.checkedRadioButtonId == R.id.config_theme_light) "light" else "dark",
             accentColor = selectedAccentColor,
-            showTodoCount = showTodoCountToggle.isChecked
+            showTodoCount = showTodoCountToggle.isChecked,
+            hideFrontmatter = hideFrontmatterToggle.isChecked,
+            startAfterFirstHeading = startAfterHeadingToggle.isChecked
         )
 
         // Trigger update for this specific widget

@@ -50,6 +50,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_WIDGET_THEME = "widget_theme"
         private const val KEY_ACCENT_COLOR = "accent_color"
         private const val KEY_SHOW_TODO_COUNT = "show_todo_count"
+        private const val KEY_HIDE_FRONTMATTER = "hide_frontmatter"
+        private const val KEY_START_AFTER_HEADING = "start_after_heading"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
@@ -76,7 +78,27 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_WIDGET_THEME}_$widgetId")
                 .remove("${KEY_ACCENT_COLOR}_$widgetId")
                 .remove("${KEY_SHOW_TODO_COUNT}_$widgetId")
+                .remove("${KEY_HIDE_FRONTMATTER}_$widgetId")
+                .remove("${KEY_START_AFTER_HEADING}_$widgetId")
                 .apply()
+        }
+
+        /**
+         * Returns the line index (inclusive) of the closing '---' of YAML frontmatter,
+         * or -1 if no frontmatter is present.
+         * Lines up to and including this index should be skipped during display parsing.
+         * We deliberately do NOT strip the content string so that raw lineIndex values
+         * stored in ChecklistItem still map directly to real file line numbers.
+         */
+        fun findFrontmatterEndLine(lines: List<String>): Int {
+            if (lines.isEmpty() || lines[0].trim() != "---") return -1
+            for (i in 1 until lines.size) {
+                if (lines[i].trim() == "---") return i
+                // A blank line before closing --- means no frontmatter (Obsidian rule)
+                // but we keep scanning — some templates have blank lines inside frontmatter
+            }
+            // Opening --- found but no closing --- — treat entire rest as frontmatter
+            return lines.size - 1
         }
     }
 
@@ -222,6 +244,22 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getBoolean(wk(KEY_SHOW_TODO_COUNT), false)
         set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_TODO_COUNT), value).apply()
 
+    /**
+     * When enabled, YAML frontmatter (--- ... ---) is hidden in the widget.
+     * Defaults to true — most users want this.
+     */
+    var hideFrontmatter: Boolean
+        get() = prefs.getBoolean(wk(KEY_HIDE_FRONTMATTER), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_HIDE_FRONTMATTER), value).apply()
+
+    /**
+     * When enabled, content before (and including) the first heading is skipped.
+     * Useful for notes with a metadata/property section before the actual content.
+     */
+    var startAfterFirstHeading: Boolean
+        get() = prefs.getBoolean(wk(KEY_START_AFTER_HEADING), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_START_AFTER_HEADING), value).apply()
+
     fun getThemeColors(): ThemeColors {
         val isDark = widgetTheme == "dark"
         val accent = try { android.graphics.Color.parseColor(accentColor) } catch (_: Exception) { 0xFFD97757.toInt() }
@@ -267,7 +305,9 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         showAddToTop: Boolean,
         widgetTheme: String,
         accentColor: String,
-        showTodoCount: Boolean
+        showTodoCount: Boolean,
+        hideFrontmatter: Boolean,
+        startAfterFirstHeading: Boolean
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -282,6 +322,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putString(wk(KEY_WIDGET_THEME), widgetTheme)
             .putString(wk(KEY_ACCENT_COLOR), accentColor)
             .putBoolean(wk(KEY_SHOW_TODO_COUNT), showTodoCount)
+            .putBoolean(wk(KEY_HIDE_FRONTMATTER), hideFrontmatter)
+            .putBoolean(wk(KEY_START_AFTER_HEADING), startAfterFirstHeading)
             .commit()
     }
 
@@ -435,23 +477,52 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     /**
      * Parse checklist items from the current widget note.
+     *
+     * Frontmatter handling: we skip lines up to and including the closing '---',
+     * but we preserve the original line indices so that toggleChecklistItem() can
+     * still locate the correct line in the raw file without any offset arithmetic.
+     *
+     * startAfterFirstHeading: when enabled, items before the first heading are
+     * also skipped, so only content after the first # heading is shown.
      */
     fun parseChecklist(): List<ChecklistItem> {
         val content = readWidgetNote() ?: return emptyList()
+        val lines = content.lines()
         val items = mutableListOf<ChecklistItem>()
-        content.lines().forEachIndexed { index, line ->
+
+        // Determine the last line index belonging to YAML frontmatter.
+        // -1 means no frontmatter present.
+        val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
+
+        // When startAfterFirstHeading is on we collect items but defer emitting
+        // until we see the first heading (the heading itself is also skipped).
+        val skipUntilHeading = startAfterFirstHeading
+        var headingFound = false
+
+        lines.forEachIndexed { index, line ->
+            // Skip frontmatter lines entirely (indices preserved for toggle safety)
+            if (index <= fmEndLine) return@forEachIndexed
+
             val match = CHECKLIST_REGEX.matchEntire(line)
             val headingMatch = HEADING_REGEX.matchEntire(line)
+
             if (match != null) {
+                if (skipUntilHeading && !headingFound) return@forEachIndexed
                 val indent = match.groupValues[1]
                 val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
                 val checked = match.groupValues[2].lowercase() == "x"
                 val text = match.groupValues[3].trim()
                 items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked, indentLevel = indentLevel))
             } else if (headingMatch != null) {
+                if (skipUntilHeading && !headingFound) {
+                    // Mark that we've passed the first heading; skip the heading line itself
+                    headingFound = true
+                    return@forEachIndexed
+                }
                 val text = headingMatch.groupValues[2].trim()
                 items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isHeading = true))
             } else {
+                if (skipUntilHeading && !headingFound) return@forEachIndexed
                 val bulletMatch = BULLET_REGEX.matchEntire(line)
                 if (bulletMatch != null) {
                     val indent = bulletMatch.groupValues[1]
@@ -463,6 +534,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 }
             }
         }
+
         if (sortUnchecked) {
             val nonChecklist = items.filter { it.isPlainText }
             val unchecked = items.filter { !it.isPlainText && !it.isChecked }
@@ -470,6 +542,33 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             return nonChecklist + unchecked + checked
         }
         return items
+    }
+
+    /**
+     * Returns the note content with frontmatter and/or pre-heading content stripped,
+     * for use in the plain-text preview path (non-checklist notes).
+     */
+    fun getDisplayContent(): String? {
+        val content = readWidgetNote() ?: return null
+        val lines = content.lines()
+
+        val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
+
+        // Build list of lines after frontmatter
+        val afterFm = lines.drop(fmEndLine + 1)
+
+        if (!startAfterFirstHeading) {
+            return afterFm.joinToString("\n").trimStart()
+        }
+
+        // Skip everything up to and including the first heading
+        val headingIdx = afterFm.indexOfFirst { HEADING_REGEX.matchEntire(it) != null }
+        return if (headingIdx == -1) {
+            // No heading found — return content as-is
+            afterFm.joinToString("\n").trimStart()
+        } else {
+            afterFm.drop(headingIdx + 1).joinToString("\n").trimStart()
+        }
     }
 
     /**
