@@ -35,8 +35,15 @@ class QuickCaptureActivity : AppCompatActivity() {
 
         if (appendToWidget) {
             val noteName = widgetVaultManager.getWidgetTitle()
-            captureTitle.text = "Add to $noteName"
-            captureInput.hint = "Type something to add..."
+            if (widgetVaultManager.smartCaptureEnabled) {
+                val tab = widgetVaultManager.activeTab
+                val heading = if (tab == "focus") widgetVaultManager.taskHeading else widgetVaultManager.notesHeading
+                captureTitle.text = "Add to $heading"
+                captureInput.hint = if (tab == "focus") "New task..." else "Quick note..."
+            } else {
+                captureTitle.text = "Add to $noteName"
+                captureInput.hint = "Type something to add..."
+            }
             captureInput.inputType = android.text.InputType.TYPE_CLASS_TEXT
             captureInput.layoutParams.height = resources.getDimensionPixelSize(
                 android.R.dimen.app_icon_size) // ~48dp, compact
@@ -65,7 +72,11 @@ class QuickCaptureActivity : AppCompatActivity() {
 
             val success = if (appendToWidget) {
                 widgetVaultManager.addToTop = addToTopToggle.isChecked
-                widgetVaultManager.appendToWidgetNote(text)
+                if (widgetVaultManager.smartCaptureEnabled) {
+                    widgetVaultManager.writeSmartCapture(text)
+                } else {
+                    widgetVaultManager.appendToWidgetNote(text)
+                }
             } else {
                 vaultManager.addToTop = addToTopToggle.isChecked
                 vaultManager.appendToDailyNote(text)

@@ -23,6 +23,8 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         private const val ACTION_ADD = "com.obsidianwidget.ACTION_ADD"
         private const val ACTION_NAV_LEFT = "com.obsidianwidget.ACTION_NAV_LEFT"
         private const val ACTION_NAV_RIGHT = "com.obsidianwidget.ACTION_NAV_RIGHT"
+        private const val ACTION_TAB_FOCUS = "com.obsidianwidget.ACTION_TAB_FOCUS"
+        private const val ACTION_TAB_NOTES = "com.obsidianwidget.ACTION_TAB_NOTES"
         const val EXTRA_LINE_INDEX = "extra_line_index"
         const val EXTRA_APPEND_TO_WIDGET = "extra_append_to_widget"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
@@ -112,6 +114,16 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                     updateWidget(context, appWidgetManager, widgetId)
                 }
             }
+            ACTION_TAB_FOCUS, ACTION_TAB_NOTES -> {
+                val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
+                if (widgetId >= 0) {
+                    val vaultManager = VaultManager(context, widgetId)
+                    vaultManager.activeTab = if (intent.action == ACTION_TAB_FOCUS) "focus" else "notes"
+                    val appWidgetManager = AppWidgetManager.getInstance(context)
+                    appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_checklist)
+                    updateWidget(context, appWidgetManager, widgetId)
+                }
+            }
         }
     }
 
@@ -127,6 +139,45 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         val noteCount = if (vaultManager.noteMode == VaultManager.NoteMode.PINNED) vaultManager.getPinnedNoteCount() else 0
         views.setTextViewText(R.id.widget_date, vaultManager.getWidgetTitle())
 
+        // ── Smart Daily Tabs ───────────────────────────────────────────────────
+        if (vaultManager.smartTabsEnabled) {
+            views.setViewVisibility(R.id.widget_tab_bar, View.VISIBLE)
+
+            val accentColor = vaultManager.getThemeColors().accent
+            val inactiveColor = 0x33FFFFFF.toInt() // subtle transparent white
+
+            val isFocus = vaultManager.activeTab == "focus"
+            views.setInt(R.id.widget_tab_focus, "setBackgroundColor",
+                if (isFocus) accentColor else inactiveColor)
+            views.setInt(R.id.widget_tab_notes, "setBackgroundColor",
+                if (!isFocus) accentColor else inactiveColor)
+            views.setTextViewText(R.id.widget_tab_focus, vaultManager.taskHeading)
+            views.setTextViewText(R.id.widget_tab_notes, vaultManager.notesHeading)
+
+            // Wire tab button clicks
+            val focusIntent = PendingIntent.getBroadcast(
+                context, appWidgetId * 100 + 10,
+                Intent(context, ObsidianWidgetProvider::class.java).apply {
+                    action = ACTION_TAB_FOCUS
+                    putExtra(EXTRA_WIDGET_ID, appWidgetId)
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val notesIntent = PendingIntent.getBroadcast(
+                context, appWidgetId * 100 + 11,
+                Intent(context, ObsidianWidgetProvider::class.java).apply {
+                    action = ACTION_TAB_NOTES
+                    putExtra(EXTRA_WIDGET_ID, appWidgetId)
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_tab_focus, focusIntent)
+            views.setOnClickPendingIntent(R.id.widget_tab_notes, notesIntent)
+        } else {
+            views.setViewVisibility(R.id.widget_tab_bar, View.GONE)
+        }
+
+        // ── Content ────────────────────────────────────────────────────────
         // Check if note has checklist items
         val allItems = vaultManager.parseChecklist()
         val hasChecklist = allItems.any { !it.isPlainText }

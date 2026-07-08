@@ -37,6 +37,14 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var showTodoCountToggle: Switch
     private lateinit var hideFrontmatterToggle: Switch
     private lateinit var startAfterHeadingToggle: Switch
+    // Smart Daily
+    private lateinit var smartTabsToggle: Switch
+    private lateinit var smartCaptureToggle: Switch
+    private lateinit var createMissingHeadingToggle: Switch
+    private lateinit var taskHeadingInput: EditText
+    private lateinit var notesHeadingInput: EditText
+    private lateinit var timestampFormatInput: EditText
+    private lateinit var defaultTabGroup: RadioGroup
     private lateinit var dateFormatInput: EditText
     private lateinit var themeGroup: RadioGroup
     private var selectedAccentColor: String = "#D97757"
@@ -99,6 +107,13 @@ class WidgetConfigActivity : AppCompatActivity() {
         showTodoCountToggle = findViewById(R.id.config_show_todo_count)
         hideFrontmatterToggle = findViewById(R.id.config_hide_frontmatter)
         startAfterHeadingToggle = findViewById(R.id.config_start_after_heading)
+        smartTabsToggle = findViewById(R.id.config_smart_tabs)
+        smartCaptureToggle = findViewById(R.id.config_smart_capture)
+        createMissingHeadingToggle = findViewById(R.id.config_create_missing_heading)
+        taskHeadingInput = findViewById(R.id.config_task_heading)
+        notesHeadingInput = findViewById(R.id.config_notes_heading)
+        timestampFormatInput = findViewById(R.id.config_timestamp_format)
+        defaultTabGroup = findViewById(R.id.config_default_tab_group)
         dateFormatInput = findViewById(R.id.config_date_format)
         themeGroup = findViewById(R.id.config_theme_group)
 
@@ -169,6 +184,16 @@ class WidgetConfigActivity : AppCompatActivity() {
         showTodoCountToggle.isChecked = vaultManager.showTodoCount
         hideFrontmatterToggle.isChecked = vaultManager.hideFrontmatter
         startAfterHeadingToggle.isChecked = vaultManager.startAfterFirstHeading
+        smartTabsToggle.isChecked = vaultManager.smartTabsEnabled
+        smartCaptureToggle.isChecked = vaultManager.smartCaptureEnabled
+        createMissingHeadingToggle.isChecked = vaultManager.createMissingHeading
+        taskHeadingInput.setText(vaultManager.taskHeading)
+        notesHeadingInput.setText(vaultManager.notesHeading)
+        timestampFormatInput.setText(vaultManager.timestampFormat)
+        defaultTabGroup.check(
+            if (vaultManager.defaultTab == "notes") R.id.config_default_tab_notes
+            else R.id.config_default_tab_focus
+        )
         dateFormatInput.setText(vaultManager.dateFormat)
 
         transparencySeekBar.progress = vaultManager.widgetAlpha
@@ -307,7 +332,14 @@ class WidgetConfigActivity : AppCompatActivity() {
             accentColor = selectedAccentColor,
             showTodoCount = showTodoCountToggle.isChecked,
             hideFrontmatter = hideFrontmatterToggle.isChecked,
-            startAfterFirstHeading = startAfterHeadingToggle.isChecked
+            startAfterFirstHeading = startAfterHeadingToggle.isChecked,
+            smartTabsEnabled = smartTabsToggle.isChecked,
+            smartCaptureEnabled = smartCaptureToggle.isChecked,
+            taskHeading = taskHeadingInput.text.toString(),
+            notesHeading = notesHeadingInput.text.toString(),
+            timestampFormat = timestampFormatInput.text.toString(),
+            createMissingHeading = createMissingHeadingToggle.isChecked,
+            defaultTab = if (defaultTabGroup.checkedRadioButtonId == R.id.config_default_tab_notes) "notes" else "focus"
         )
 
         // Trigger update for this specific widget

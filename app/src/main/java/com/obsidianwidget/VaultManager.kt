@@ -52,6 +52,15 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_SHOW_TODO_COUNT = "show_todo_count"
         private const val KEY_HIDE_FRONTMATTER = "hide_frontmatter"
         private const val KEY_START_AFTER_HEADING = "start_after_heading"
+        // Smart Daily Tabs / Capture keys
+        private const val KEY_SMART_TABS = "smart_tabs"
+        private const val KEY_SMART_CAPTURE = "smart_capture"
+        private const val KEY_TASK_HEADING = "task_heading"
+        private const val KEY_NOTES_HEADING = "notes_heading"
+        private const val KEY_TIMESTAMP_FORMAT = "timestamp_format"
+        private const val KEY_CREATE_MISSING_HEADING = "create_missing_heading"
+        private const val KEY_ACTIVE_TAB = "active_tab"
+        private const val KEY_DEFAULT_TAB = "default_tab"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
@@ -80,6 +89,14 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_SHOW_TODO_COUNT}_$widgetId")
                 .remove("${KEY_HIDE_FRONTMATTER}_$widgetId")
                 .remove("${KEY_START_AFTER_HEADING}_$widgetId")
+                .remove("${KEY_SMART_TABS}_$widgetId")
+                .remove("${KEY_SMART_CAPTURE}_$widgetId")
+                .remove("${KEY_TASK_HEADING}_$widgetId")
+                .remove("${KEY_NOTES_HEADING}_$widgetId")
+                .remove("${KEY_TIMESTAMP_FORMAT}_$widgetId")
+                .remove("${KEY_CREATE_MISSING_HEADING}_$widgetId")
+                .remove("${KEY_ACTIVE_TAB}_$widgetId")
+                .remove("${KEY_DEFAULT_TAB}_$widgetId")
                 .apply()
         }
 
@@ -260,6 +277,51 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getBoolean(wk(KEY_START_AFTER_HEADING), false)
         set(value) = prefs.edit().putBoolean(wk(KEY_START_AFTER_HEADING), value).apply()
 
+    // ── Smart Daily Tabs ────────────────────────────────────────────────────────
+
+    /** Show Focus / Notes tab bar in widget. Off by default — safe for existing users. */
+    var smartTabsEnabled: Boolean
+        get() = prefs.getBoolean(wk(KEY_SMART_TABS), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_SMART_TABS), value).apply()
+
+    /** When on, capture input is routed to the correct heading instead of plain append. Off by default. */
+    var smartCaptureEnabled: Boolean
+        get() = prefs.getBoolean(wk(KEY_SMART_CAPTURE), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_SMART_CAPTURE), value).apply()
+
+    /** Heading name for the task/focus section. Default: "Fokus" */
+    var taskHeading: String
+        get() = prefs.getString(wk(KEY_TASK_HEADING), "Fokus") ?: "Fokus"
+        set(value) = prefs.edit().putString(wk(KEY_TASK_HEADING), value).apply()
+
+    /** Heading name for the notes/log section. Default: "Notizen" */
+    var notesHeading: String
+        get() = prefs.getString(wk(KEY_NOTES_HEADING), "Notizen") ?: "Notizen"
+        set(value) = prefs.edit().putString(wk(KEY_NOTES_HEADING), value).apply()
+
+    /** Time format for timestamped notes. Default: "HH:mm" */
+    var timestampFormat: String
+        get() = prefs.getString(wk(KEY_TIMESTAMP_FORMAT), "HH:mm") ?: "HH:mm"
+        set(value) = prefs.edit().putString(wk(KEY_TIMESTAMP_FORMAT), value).apply()
+
+    /** If the target heading is missing from the note, create it. Default: true */
+    var createMissingHeading: Boolean
+        get() = prefs.getBoolean(wk(KEY_CREATE_MISSING_HEADING), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_CREATE_MISSING_HEADING), value).apply()
+
+    /**
+     * Which tab is currently active: "focus" or "notes".
+     * Persisted per-widget so the last-used tab survives refresh.
+     */
+    var activeTab: String
+        get() = prefs.getString(wk(KEY_ACTIVE_TAB), prefs.getString(wk(KEY_DEFAULT_TAB), "focus") ?: "focus") ?: "focus"
+        set(value) { prefs.edit().putString(wk(KEY_ACTIVE_TAB), value).commit() }
+
+    /** Default tab when widget is first configured: "focus", "notes". Default: "focus" */
+    var defaultTab: String
+        get() = prefs.getString(wk(KEY_DEFAULT_TAB), "focus") ?: "focus"
+        set(value) = prefs.edit().putString(wk(KEY_DEFAULT_TAB), value).apply()
+
     fun getThemeColors(): ThemeColors {
         val isDark = widgetTheme == "dark"
         val accent = try { android.graphics.Color.parseColor(accentColor) } catch (_: Exception) { 0xFFD97757.toInt() }
@@ -307,7 +369,14 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         accentColor: String,
         showTodoCount: Boolean,
         hideFrontmatter: Boolean,
-        startAfterFirstHeading: Boolean
+        startAfterFirstHeading: Boolean,
+        smartTabsEnabled: Boolean,
+        smartCaptureEnabled: Boolean,
+        taskHeading: String,
+        notesHeading: String,
+        timestampFormat: String,
+        createMissingHeading: Boolean,
+        defaultTab: String
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -324,6 +393,13 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putBoolean(wk(KEY_SHOW_TODO_COUNT), showTodoCount)
             .putBoolean(wk(KEY_HIDE_FRONTMATTER), hideFrontmatter)
             .putBoolean(wk(KEY_START_AFTER_HEADING), startAfterFirstHeading)
+            .putBoolean(wk(KEY_SMART_TABS), smartTabsEnabled)
+            .putBoolean(wk(KEY_SMART_CAPTURE), smartCaptureEnabled)
+            .putString(wk(KEY_TASK_HEADING), taskHeading.ifBlank { "Fokus" })
+            .putString(wk(KEY_NOTES_HEADING), notesHeading.ifBlank { "Notizen" })
+            .putString(wk(KEY_TIMESTAMP_FORMAT), timestampFormat.ifBlank { "HH:mm" })
+            .putBoolean(wk(KEY_CREATE_MISSING_HEADING), createMissingHeading)
+            .putString(wk(KEY_DEFAULT_TAB), defaultTab)
             .commit()
     }
 
@@ -494,14 +570,24 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         // -1 means no frontmatter present.
         val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
 
+        // Smart tabs: find the bounds of the active section so we only show
+        // that section's content. Indices preserved → toggles still work.
+        val (sectionStart, sectionEnd) = if (smartTabsEnabled) {
+            val heading = if (activeTab == "focus") taskHeading else notesHeading
+            getSectionBounds(lines, heading)
+        } else Pair(-1, Int.MAX_VALUE)
+
         // When startAfterFirstHeading is on we collect items but defer emitting
         // until we see the first heading (the heading itself is also skipped).
-        val skipUntilHeading = startAfterFirstHeading
+        // (Only applies when smart tabs is off — tabs already pin to one section)
+        val skipUntilHeading = startAfterFirstHeading && !smartTabsEnabled
         var headingFound = false
 
         lines.forEachIndexed { index, line ->
             // Skip frontmatter lines entirely (indices preserved for toggle safety)
             if (index <= fmEndLine) return@forEachIndexed
+            // Skip lines outside the active section when smart tabs is on
+            if (smartTabsEnabled && (index < sectionStart || index > sectionEnd)) return@forEachIndexed
 
             val match = CHECKLIST_REGEX.matchEntire(line)
             val headingMatch = HEADING_REGEX.matchEntire(line)
@@ -553,9 +639,13 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val lines = content.lines()
 
         val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
-
-        // Build list of lines after frontmatter
         val afterFm = lines.drop(fmEndLine + 1)
+
+        // Smart tabs: return only the active section
+        if (smartTabsEnabled) {
+            val heading = if (activeTab == "focus") taskHeading else notesHeading
+            return getSection(afterFm.joinToString("\n"), heading)
+        }
 
         if (!startAfterFirstHeading) {
             return afterFm.joinToString("\n").trimStart()
@@ -564,11 +654,108 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         // Skip everything up to and including the first heading
         val headingIdx = afterFm.indexOfFirst { HEADING_REGEX.matchEntire(it) != null }
         return if (headingIdx == -1) {
-            // No heading found — return content as-is
             afterFm.joinToString("\n").trimStart()
         } else {
             afterFm.drop(headingIdx + 1).joinToString("\n").trimStart()
         }
+    }
+
+    // ── Smart Daily helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Returns the (startLine, endLine) bounds (inclusive) of the content
+     * under [heading] within [lines], or (-1, MAX_VALUE) if not found.
+     * startLine points to the line AFTER the heading marker;
+     * endLine points to the last non-empty line before the next ## heading or EOF.
+     * Callers use these bounds to filter during forEachIndexed so raw line
+     * indices are preserved and toggleChecklistItem() keeps working correctly.
+     */
+    fun getSectionBounds(lines: List<String>, heading: String): Pair<Int, Int> {
+        val headingPattern = Regex("""^##\s+${Regex.escape(heading)}\s*$""", RegexOption.IGNORE_CASE)
+        val nextHeadingPattern = Regex("""^#{1,6}\s+.+""")
+        var start = -1
+        for (i in lines.indices) {
+            if (start == -1) {
+                if (headingPattern.matches(lines[i])) start = i + 1
+            } else {
+                // Stop at the next heading of any level
+                if (nextHeadingPattern.matches(lines[i])) return Pair(start, i - 1)
+            }
+        }
+        return if (start == -1) Pair(-1, Int.MAX_VALUE) else Pair(start, lines.lastIndex)
+    }
+
+    /**
+     * Extracts the text content under [heading] as a trimmed string.
+     * Used for the plain-text preview path.
+     */
+    fun getSection(content: String, heading: String): String {
+        val lines = content.lines()
+        val (start, end) = getSectionBounds(lines, heading)
+        if (start == -1) return ""
+        return lines.subList(start, minOf(end + 1, lines.size)).joinToString("\n").trim()
+    }
+
+    /**
+     * Inserts [line] directly under [heading] in [content], collapsing any
+     * extra blank lines between the heading and the first content line.
+     * If the heading is missing and [createIfMissing] is true, appends it.
+     */
+    fun insertUnderHeading(content: String, heading: String, line: String, createIfMissing: Boolean = createMissingHeading): String {
+        val headingPattern = Regex("""(?im)^(##\s+${Regex.escape(heading)}\s*)\r?\n(\r?\n)*""".trimIndent())
+        val match = headingPattern.find(content)
+        return if (match != null) {
+            // Replace the heading + any trailing blank lines with heading + new line
+            val headingLine = match.groupValues[1].trimEnd()
+            content.replaceRange(match.range, "$headingLine\n$line\n")
+        } else if (createIfMissing) {
+            content.trimEnd() + "\n\n## $heading\n$line\n"
+        } else {
+            content
+        }
+    }
+
+    /** Current time formatted with the widget's configured timestampFormat. */
+    fun currentTimeHHmm(): String {
+        val fmt = try {
+            java.time.format.DateTimeFormatter.ofPattern(timestampFormat)
+        } catch (_: Exception) {
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+        }
+        return java.time.LocalTime.now().format(fmt)
+    }
+
+    /**
+     * Tab-aware smart capture:
+     * - "focus" tab  → strips leading dash/task syntax → inserts as "- [ ] task" under taskHeading
+     * - "notes" tab  → inserts as "- **HH:mm:** text" under notesHeading
+     * Falls back gracefully to plain append if headings can't be found and createMissingHeading is off.
+     */
+    fun smartCapture(content: String, input: String, tab: String = activeTab): String {
+        val text = input.trim()
+        if (text.isEmpty()) return content
+        return when (tab) {
+            "focus" -> {
+                val clean = text.replace(Regex("""^-\s*(\[[ x]\])?\s*"""), "").trim()
+                insertUnderHeading(content, taskHeading, "- [ ] $clean")
+            }
+            "notes" -> {
+                val time = currentTimeHHmm()
+                insertUnderHeading(content, notesHeading, "- **$time:** $text")
+            }
+            else -> content
+        }
+    }
+
+    /**
+     * Reads the current widget note, applies smartCapture(), and writes the result back.
+     * Returns true on success. Called by QuickCaptureActivity when smartCaptureEnabled is on.
+     */
+    fun writeSmartCapture(input: String): Boolean {
+        val noteUri = getWidgetNoteUri() ?: return false
+        val content = readFileContent(noteUri) ?: return false
+        val newContent = smartCapture(content, input)
+        return writeFileContent(noteUri, newContent)
     }
 
     /**
