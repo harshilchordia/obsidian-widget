@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Default widget layout: ViewFlipper has NO slide animations.
+     Animated tab switches inflate widget_layout_slide_ltr / _rtl instead. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="14dp">
 
     <!-- Header -->
     <LinearLayout
@@ -42,43 +44,46 @@
 
         <ImageButton
             android:id="@+id/widget_cycle_note"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginEnd="8dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginEnd="6dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="Next note"
             android:src="@drawable/ic_chevron_right"
             android:scaleType="centerInside"
+            android:padding="4dp"
             android:visibility="gone" />
 
         <ImageButton
             android:id="@+id/widget_refresh"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginEnd="8dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginEnd="6dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="Sync"
             android:src="@android:drawable/stat_notify_sync"
             android:scaleType="centerInside"
+            android:padding="4dp"
             android:visibility="gone" />
 
         <ImageButton
             android:id="@+id/widget_settings"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="Settings"
             android:src="@android:drawable/ic_menu_manage"
-            android:scaleType="centerInside" />
+            android:scaleType="centerInside"
+            android:padding="4dp" />
     </LinearLayout>
 
-    <!-- Smart Daily tab bar -->
+    <!-- Tabs -->
     <LinearLayout
         android:id="@+id/widget_tab_bar"
         android:layout_width="match_parent"
-        android:layout_height="28dp"
+        android:layout_height="32dp"
         android:orientation="horizontal"
-        android:layout_marginBottom="6dp"
+        android:layout_marginBottom="8dp"
         android:visibility="gone">
 
         <TextView
@@ -92,6 +97,7 @@
             android:textColor="@color/white"
             android:textSize="12sp"
             android:fontFamily="sans-serif-medium"
+            android:background="@drawable/widget_tab_inactive"
             android:paddingStart="8dp"
             android:paddingEnd="8dp" />
 
@@ -105,11 +111,12 @@
             android:textColor="@color/white"
             android:textSize="12sp"
             android:fontFamily="sans-serif-medium"
+            android:background="@drawable/widget_tab_inactive"
             android:paddingStart="8dp"
             android:paddingEnd="8dp" />
     </LinearLayout>
 
-    <!-- Content fills remaining space so the button bar never jumps -->
+    <!-- Content -->
     <FrameLayout
         android:id="@+id/widget_content_area"
         android:layout_width="match_parent"
@@ -128,7 +135,6 @@
             android:ellipsize="end"
             android:visibility="gone" />
 
-        <!-- Single list (smart tabs off) -->
         <ListView
             android:id="@+id/widget_checklist"
             android:layout_width="match_parent"
@@ -145,76 +151,118 @@
             android:paddingBottom="2dp"
             android:clipToPadding="false" />
 
-        <!-- Focus list (smart tabs) — visibility toggled, no flipper/animation -->
-        <ListView
-            android:id="@+id/widget_checklist_focus"
+        <!-- No animations here — avoids re-slide on data refresh / todo toggle -->
+        <ViewFlipper
+            android:id="@+id/widget_tab_flipper"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="@android:color/transparent"
-            android:dividerHeight="0dp"
-            android:scrollbars="vertical"
-            android:fadeScrollbars="true"
-            android:scrollbarStyle="insideOverlay"
-            android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
-            android:scrollbarSize="3dp"
-            android:fadingEdge="vertical"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp"
-            android:clipToPadding="false"
-            android:visibility="gone" />
+            android:autoStart="false"
+            android:animateFirstView="false"
+            android:visibility="gone">
 
-        <!-- Notes list (smart tabs) -->
-        <ListView
-            android:id="@+id/widget_checklist_notes"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:divider="@android:color/transparent"
-            android:dividerHeight="0dp"
-            android:scrollbars="vertical"
-            android:fadeScrollbars="true"
-            android:scrollbarStyle="insideOverlay"
-            android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
-            android:scrollbarSize="3dp"
-            android:fadingEdge="vertical"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp"
-            android:clipToPadding="false"
-            android:visibility="gone" />
+            <ListView
+                android:id="@+id/widget_checklist_focus"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@android:color/transparent"
+                android:dividerHeight="0dp"
+                android:scrollbars="vertical"
+                android:fadeScrollbars="true"
+                android:scrollbarStyle="insideOverlay"
+                android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
+                android:scrollbarSize="3dp"
+                android:fadingEdge="vertical"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:clipToPadding="false" />
+
+            <ListView
+                android:id="@+id/widget_checklist_notes"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@android:color/transparent"
+                android:dividerHeight="0dp"
+                android:scrollbars="vertical"
+                android:fadeScrollbars="true"
+                android:scrollbarStyle="insideOverlay"
+                android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
+                android:scrollbarSize="3dp"
+                android:fadingEdge="vertical"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:clipToPadding="false" />
+        </ViewFlipper>
     </FrameLayout>
 
-    <!-- Bottom buttons — always after weighted content -->
+    <!-- Bottom action buttons with icons -->
     <LinearLayout
         android:id="@+id/widget_button_bar"
         android:layout_width="match_parent"
-        android:layout_height="32dp"
-        android:layout_marginTop="4dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <Button
+        <LinearLayout
             android:id="@+id/widget_add"
             android:layout_width="0dp"
-            android:layout_height="28dp"
+            android:layout_height="36dp"
             android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:background="@drawable/button_background"
-            android:text="+ Add"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:textAllCaps="false"
-            android:fontFamily="sans-serif-medium" />
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/widget_button_bg"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp">
 
-        <Button
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="6dp"
+                android:src="@drawable/ic_add_button"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/widget_add_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Add"
+                android:textColor="@color/white"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/widget_btn_capture"
             android:layout_width="0dp"
-            android:layout_height="28dp"
+            android:layout_height="36dp"
             android:layout_weight="1"
-            android:background="@drawable/button_background"
-            android:text="Note"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:textAllCaps="false"
-            android:fontFamily="sans-serif-medium" />
+            android:background="@drawable/widget_button_bg"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="6dp"
+                android:src="@drawable/ic_note"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/widget_capture_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Note"
+                android:textColor="@color/white"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>
