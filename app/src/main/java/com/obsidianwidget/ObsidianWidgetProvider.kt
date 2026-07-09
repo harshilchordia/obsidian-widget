@@ -42,6 +42,20 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             context.sendBroadcast(intent)
         }
 
+        /** Full redraw + force remote list rebind for one widget (after capture). */
+        fun refreshWidget(context: Context, widgetId: Int) {
+            if (widgetId < 0) {
+                updateAllWidgets(context)
+                return
+            }
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val provider = ObsidianWidgetProvider()
+            provider.updateWidget(context, appWidgetManager, widgetId)
+            appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_checklist)
+            appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_checklist_focus)
+            appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_checklist_notes)
+        }
+
         fun updateAutoSyncWidgets(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val widgetIds = appWidgetManager.getAppWidgetIds(

@@ -563,16 +563,23 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     private fun writeFileContent(uri: Uri, content: String): Boolean {
-        return try {
-            context.contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
-                OutputStreamWriter(outputStream).use { writer ->
-                    writer.write(content)
+        // Try several SAF write modes — some providers reject "wt"
+        val modes = arrayOf("wt", "rwt", "w")
+        for (mode in modes) {
+            try {
+                val stream = context.contentResolver.openOutputStream(uri, mode) ?: continue
+                stream.use { outputStream ->
+                    OutputStreamWriter(outputStream, Charsets.UTF_8).use { writer ->
+                        writer.write(content)
+                        writer.flush()
+                    }
                 }
+                return true
+            } catch (_: Exception) {
+                // try next mode
             }
-            true
-        } catch (e: Exception) {
-            false
         }
+        return false
     }
 
     /**
@@ -694,25 +701,48 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     /**
      * Returns the (startLine, endLine) bounds (inclusive) of the content
-     * under [heading] within [lines], or (-1, MAX_VALUE) if not found.
+     * under [heading] within [lines].
      * startLine points to the line AFTER the heading marker;
-     * endLine points to the last non-empty line before the next ## heading or EOF.
-     * Callers use these bounds to filter during forEachIndexed so raw line
-     * indices are preserved and toggleChecklistItem() keeps working correctly.
+     * endLine points to the last line before the next heading or EOF.
+     *
+     * If the heading is missing, returns (MAX, -1) so the filter excludes
+     * every line (empty section) rather than showing the whole note.
      */
     fun getSectionBounds(lines: List<String>, heading: String): Pair<Int, Int> {
-        val headingPattern = Regex("""^##\s+${Regex.escape(heading)}\s*$""", RegexOption.IGNORE_CASE)
+        val name = heading.trim()
+        if (name.isEmpty()) return Pair(Int.MAX_VALUE, -1)
+
+        // Match # … ###### heading (not only ##)
+        val headingPattern = Regex(
+            """^#{1,6}\s+${Regex.escape(name)}\s*$""",
+            RegexOption.IGNORE_CASE
+        )
         val nextHeadingPattern = Regex("""^#{1,6}\s+.+""")
         var start = -1
         for (i in lines.indices) {
             if (start == -1) {
-                if (headingPattern.matches(lines[i])) start = i + 1
+                if (headingPattern.matches(lines[i].trimEnd())) start = i + 1
             } else {
-                // Stop at the next heading of any level
-                if (nextHeadingPattern.matches(lines[i])) return Pair(start, i - 1)
+                if (nextHeadingPattern.matches(lines[i].trimEnd())) return Pair(start, i - 1)
             }
         }
-        return if (start == -1) Pair(-1, Int.MAX_VALUE) else Pair(start, lines.lastIndex)
+        return if (start == -1) {
+            // Empty section — do not fall back to whole-file content
+            Pair(Int.MAX_VALUE, -1)
+        } else {
+            Pair(start, lines.lastIndex)
+        }
+    }
+
+    /** Index of the heading line for [heading], or -1 if missing. */
+    fun findHeadingLineIndex(lines: List<String>, heading: String): Int {
+        val name = heading.trim()
+        if (name.isEmpty()) return -1
+        val headingPattern = Regex(
+            """^#{1,6}\s+${Regex.escape(name)}\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+        return lines.indexOfFirst { headingPattern.matches(it.trimEnd()) }
     }
 
     /**
@@ -731,7 +761,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
      *
      * @param atTop true  → insert directly under the heading (newest first; used for Notes)
      *              false → append at the bottom of the section (used for Focus tasks)
-     * If the heading is missing and [createIfMissing] is true, appends the section at EOF.
+     * If the heading is missing and [createIfMissing] is true, appends `## heading` at EOF.
      */
     fun insertUnderHeading(
         content: String,
@@ -740,21 +770,16 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         createIfMissing: Boolean = createMissingHeading,
         atTop: Boolean = true
     ): String {
+        val name = heading.trim().ifBlank { return content }
         val lines = content.lines().toMutableList()
-        val headingPattern = Regex("""^##\s+${Regex.escape(heading)}\s*$""", RegexOption.IGNORE_CASE)
         val nextHeadingPattern = Regex("""^#{1,6}\s+.+""")
 
-        var headingIdx = -1
-        for (i in lines.indices) {
-            if (headingPattern.matches(lines[i])) {
-                headingIdx = i
-                break
-            }
-        }
+        var headingIdx = findHeadingLineIndex(lines, name)
 
         if (headingIdx == -1) {
             return if (createIfMissing) {
-                content.trimEnd() + "\n\n## $heading\n$line\n"
+                val base = content.trimEnd()
+                if (base.isEmpty()) "## $name\n$line\n" else "$base\n\n## $name\n$line\n"
             } else {
                 content
             }
@@ -763,7 +788,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         // Last line index of this section (before the next heading, or EOF)
         var sectionEnd = lines.lastIndex
         for (i in (headingIdx + 1)..lines.lastIndex) {
-            if (nextHeadingPattern.matches(lines[i])) {
+            if (nextHeadingPattern.matches(lines[i].trimEnd())) {
                 sectionEnd = i - 1
                 break
             }
@@ -801,23 +826,31 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     /**
      * Tab-aware smart capture:
-     * - "focus" tab  → strips leading dash/task syntax → inserts as "- [ ] task" under taskHeading
-     * - "notes" tab  → inserts as "- HH:mm text" under notesHeading (newest first)
-     * Falls back gracefully to plain append if headings can't be found and createMissingHeading is off.
+     * - "focus" → "- [ ] task" under taskHeading (bottom of section)
+     * - "notes" → "- HH:mm text" under notesHeading (top of section)
+     *
+     * Always creates the heading if missing so notes never silently no-op.
      */
     fun smartCapture(content: String, input: String, tab: String = activeTab): String {
         val text = input.trim()
         if (text.isEmpty()) return content
-        return when (tab) {
+        return when (tab.lowercase()) {
             "focus" -> {
-                val clean = text.replace(Regex("""^-\s*(\[[ x]\])?\s*"""), "").trim()
-                // Tasks append at the bottom of the Focus block
-                insertUnderHeading(content, taskHeading, "- [ ] $clean", atTop = false)
+                val clean = text.replace(Regex("""^-\s*(\[[ xX]\])?\s*"""), "").trim()
+                if (clean.isEmpty()) return content
+                insertUnderHeading(
+                    content, taskHeading, "- [ ] $clean",
+                    createIfMissing = true,
+                    atTop = false
+                )
             }
             "notes" -> {
                 val time = currentTimeHHmm()
-                // Newest notes at top: plain bullet + time + text (e.g. "- 16:29 Bought milk")
-                insertUnderHeading(content, notesHeading, "- $time $text", atTop = true)
+                insertUnderHeading(
+                    content, notesHeading, "- $time $text",
+                    createIfMissing = true,
+                    atTop = true
+                )
             }
             else -> content
         }
@@ -826,11 +859,14 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     /**
      * Reads the current widget note, applies smartCapture(), and writes the result back.
      * Creates today's daily note if it does not exist yet.
+     *
+     * @param tab "focus" or "notes" — pass explicitly from the capture UI
      */
-    fun writeSmartCapture(input: String): Boolean {
+    fun writeSmartCapture(input: String, tab: String = activeTab): Boolean {
         val noteUri = getOrCreateWidgetNoteUri() ?: return false
         val content = readFileContent(noteUri) ?: ""
-        val newContent = smartCapture(content, input)
+        val newContent = smartCapture(content, input, tab)
+        if (newContent == content) return false
         return writeFileContent(noteUri, newContent)
     }
 

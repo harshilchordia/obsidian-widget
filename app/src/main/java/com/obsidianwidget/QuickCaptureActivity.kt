@@ -34,12 +34,20 @@ class QuickCaptureActivity : AppCompatActivity() {
         val saveBtn = findViewById<Button>(R.id.btn_save)
         val cancelBtn = findViewById<Button>(R.id.btn_cancel)
 
-        // Smart routing (tabs or capture) always places notes at top / tasks at bottom —
-        // the "Add to top" switch does nothing in that path, so hide it.
-        val useSmartRouting = appendToWidget &&
-            (widgetVaultManager.smartTabsEnabled || widgetVaultManager.smartCaptureEnabled)
+        // Smart routing when Smart Tabs or Smart Capture is on
+        val smartMode = widgetVaultManager.smartTabsEnabled || widgetVaultManager.smartCaptureEnabled
 
-        if (useSmartRouting) {
+        // Snapshot tab at open so we insert into the tab the user was viewing
+        val targetTab = when {
+            // + Add → active tab (focus tasks / notes log)
+            appendToWidget -> widgetVaultManager.activeTab.ifBlank { "focus" }
+            // Note button → always notes section when smart mode is on
+            smartMode -> "notes"
+            else -> "notes"
+        }
+
+        // "Add to top" only applies to plain append (not smart heading routing)
+        if (smartMode) {
             addToTopRow.visibility = View.GONE
         } else if (widgetVaultManager.showAddToTop) {
             addToTopRow.visibility = View.VISIBLE
@@ -48,22 +56,19 @@ class QuickCaptureActivity : AppCompatActivity() {
             addToTopRow.visibility = View.GONE
         }
 
-        // Tint controls to this widget's accent (not hard-coded orange)
         applyAccent(widgetVaultManager, addToTopToggle, saveBtn, cancelBtn)
 
-        if (appendToWidget) {
-            val noteName = widgetVaultManager.getWidgetTitle()
-            if (useSmartRouting) {
-                val tab = widgetVaultManager.activeTab
-                val heading = if (tab == "focus") {
+        if (appendToWidget || smartMode) {
+            if (smartMode) {
+                val heading = if (targetTab == "focus") {
                     widgetVaultManager.taskHeading
                 } else {
                     widgetVaultManager.notesHeading
                 }
                 captureTitle.text = "Add to $heading"
-                captureInput.hint = if (tab == "focus") "New task..." else "Quick note..."
+                captureInput.hint = if (targetTab == "focus") "New task..." else "Quick note..."
             } else {
-                captureTitle.text = "Add to $noteName"
+                captureTitle.text = "Add to ${widgetVaultManager.getWidgetTitle()}"
                 captureInput.hint = "Type something to add..."
             }
             captureInput.inputType = android.text.InputType.TYPE_CLASS_TEXT
@@ -86,28 +91,31 @@ class QuickCaptureActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            if (!vaultManager.isVaultConfigured && !widgetVaultManager.isVaultConfigured) {
+            val vm = if (widgetId >= 0) widgetVaultManager else vaultManager
+            if (!vm.isVaultConfigured) {
                 Toast.makeText(this, R.string.vault_not_configured, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            val success = if (appendToWidget) {
-                if (useSmartRouting) {
-                    // Notes → top under ## Notes as "- HH:mm text"
-                    // Focus → bottom under ## Fokus as "- [ ] task"
-                    widgetVaultManager.writeSmartCapture(text)
-                } else {
-                    widgetVaultManager.addToTop = addToTopToggle.isChecked
-                    widgetVaultManager.appendToWidgetNote(text)
-                }
+            val success = if (smartMode) {
+                // Always heading-route when smart mode is on (both Add and Note buttons)
+                vm.writeSmartCapture(text, targetTab)
+            } else if (appendToWidget) {
+                vm.addToTop = addToTopToggle.isChecked
+                vm.appendToWidgetNote(text)
             } else {
-                vaultManager.addToTop = addToTopToggle.isChecked
-                vaultManager.appendToDailyNote(text)
+                vm.addToTop = addToTopToggle.isChecked
+                vm.appendToDailyNote(text)
             }
 
             if (success) {
                 Toast.makeText(this, R.string.note_saved, Toast.LENGTH_SHORT).show()
-                ObsidianWidgetProvider.updateAllWidgets(this)
+                // Force list rebind so the new bullet appears immediately
+                if (widgetId >= 0) {
+                    ObsidianWidgetProvider.refreshWidget(this, widgetId)
+                } else {
+                    ObsidianWidgetProvider.updateAllWidgets(this)
+                }
             } else {
                 Toast.makeText(this, R.string.error_saving, Toast.LENGTH_SHORT).show()
             }
@@ -156,7 +164,6 @@ class QuickCaptureActivity : AppCompatActivity() {
                 ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 80))
         } catch (_: Exception) { }
 
-        // Soft outline cancel stays neutral; lightly tint if possible
         cancelBtn.backgroundTintList =
             ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 40))
     }
