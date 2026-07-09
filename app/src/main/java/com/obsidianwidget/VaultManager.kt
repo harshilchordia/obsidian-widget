@@ -61,7 +61,11 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_CREATE_MISSING_HEADING = "create_missing_heading"
         private const val KEY_ACTIVE_TAB = "active_tab"
         private const val KEY_DEFAULT_TAB = "default_tab"
+        private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
+        private const val KEY_AUTO_SYNC = "auto_sync"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
+        private const val DEFAULT_TASK_HEADING = "Fokus"
+        private const val DEFAULT_NOTES_HEADING = "Notes"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
         private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.+)$""")
@@ -97,6 +101,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_CREATE_MISSING_HEADING}_$widgetId")
                 .remove("${KEY_ACTIVE_TAB}_$widgetId")
                 .remove("${KEY_DEFAULT_TAB}_$widgetId")
+                .remove("${KEY_HAPTIC_FEEDBACK}_$widgetId")
+                .remove("${KEY_AUTO_SYNC}_$widgetId")
                 .apply()
         }
 
@@ -291,13 +297,27 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     /** Heading name for the task/focus section. Default: "Fokus" */
     var taskHeading: String
-        get() = prefs.getString(wk(KEY_TASK_HEADING), "Fokus") ?: "Fokus"
+        get() = prefs.getString(wk(KEY_TASK_HEADING), DEFAULT_TASK_HEADING) ?: DEFAULT_TASK_HEADING
         set(value) = prefs.edit().putString(wk(KEY_TASK_HEADING), value).apply()
 
-    /** Heading name for the notes/log section. Default: "Notizen" */
+    /** Heading name for the notes/log section. Default: "Notes" */
     var notesHeading: String
-        get() = prefs.getString(wk(KEY_NOTES_HEADING), "Notizen") ?: "Notizen"
+        get() = prefs.getString(wk(KEY_NOTES_HEADING), DEFAULT_NOTES_HEADING) ?: DEFAULT_NOTES_HEADING
         set(value) = prefs.edit().putString(wk(KEY_NOTES_HEADING), value).apply()
+
+    /** Short haptic click when toggling a checklist item. Default: on. */
+    var hapticFeedback: Boolean
+        get() = prefs.getBoolean(wk(KEY_HAPTIC_FEEDBACK), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_HAPTIC_FEEDBACK), value).apply()
+
+    /**
+     * When enabled, widgets refresh on the system interval and on screen unlock.
+     * When disabled, a manual refresh button is shown on the widget header.
+     * Default: on.
+     */
+    var autoSync: Boolean
+        get() = prefs.getBoolean(wk(KEY_AUTO_SYNC), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_AUTO_SYNC), value).apply()
 
     /** Time format for timestamped notes. Default: "HH:mm" */
     var timestampFormat: String
@@ -376,7 +396,9 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         notesHeading: String,
         timestampFormat: String,
         createMissingHeading: Boolean,
-        defaultTab: String
+        defaultTab: String,
+        hapticFeedback: Boolean,
+        autoSync: Boolean
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -395,11 +417,13 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putBoolean(wk(KEY_START_AFTER_HEADING), startAfterFirstHeading)
             .putBoolean(wk(KEY_SMART_TABS), smartTabsEnabled)
             .putBoolean(wk(KEY_SMART_CAPTURE), smartCaptureEnabled)
-            .putString(wk(KEY_TASK_HEADING), taskHeading.ifBlank { "Fokus" })
-            .putString(wk(KEY_NOTES_HEADING), notesHeading.ifBlank { "Notizen" })
+            .putString(wk(KEY_TASK_HEADING), taskHeading.ifBlank { DEFAULT_TASK_HEADING })
+            .putString(wk(KEY_NOTES_HEADING), notesHeading.ifBlank { DEFAULT_NOTES_HEADING })
             .putString(wk(KEY_TIMESTAMP_FORMAT), timestampFormat.ifBlank { "HH:mm" })
             .putBoolean(wk(KEY_CREATE_MISSING_HEADING), createMissingHeading)
             .putString(wk(KEY_DEFAULT_TAB), defaultTab)
+            .putBoolean(wk(KEY_HAPTIC_FEEDBACK), hapticFeedback)
+            .putBoolean(wk(KEY_AUTO_SYNC), autoSync)
             .commit()
     }
 
@@ -561,7 +585,11 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
      * startAfterFirstHeading: when enabled, items before the first heading are
      * also skipped, so only content after the first # heading is shown.
      */
-    fun parseChecklist(): List<ChecklistItem> {
+    /**
+     * @param forceTab When non-null ("focus" or "notes"), filter to that section
+     *                 even if it is not the active tab. Used by dual ListView factories.
+     */
+    fun parseChecklist(forceTab: String? = null): List<ChecklistItem> {
         val content = readWidgetNote() ?: return emptyList()
         val lines = content.lines()
         val items = mutableListOf<ChecklistItem>()
@@ -570,10 +598,12 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         // -1 means no frontmatter present.
         val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
 
-        // Smart tabs: find the bounds of the active section so we only show
+        // Smart tabs: find the bounds of the active (or forced) section so we only show
         // that section's content. Indices preserved → toggles still work.
-        val (sectionStart, sectionEnd) = if (smartTabsEnabled) {
-            val heading = if (activeTab == "focus") taskHeading else notesHeading
+        val tab = forceTab ?: activeTab
+        val filterBySection = smartTabsEnabled || forceTab != null
+        val (sectionStart, sectionEnd) = if (filterBySection && smartTabsEnabled) {
+            val heading = if (tab == "focus") taskHeading else notesHeading
             getSectionBounds(lines, heading)
         } else Pair(-1, Int.MAX_VALUE)
 
@@ -697,22 +727,66 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     /**
-     * Inserts [line] directly under [heading] in [content], collapsing any
-     * extra blank lines between the heading and the first content line.
-     * If the heading is missing and [createIfMissing] is true, appends it.
+     * Inserts [line] under [heading] in [content].
+     *
+     * @param atTop true  → insert directly under the heading (newest first; used for Notes)
+     *              false → append at the bottom of the section (used for Focus tasks)
+     * If the heading is missing and [createIfMissing] is true, appends the section at EOF.
      */
-    fun insertUnderHeading(content: String, heading: String, line: String, createIfMissing: Boolean = createMissingHeading): String {
-        val headingPattern = Regex("""(?im)^(##\s+${Regex.escape(heading)}\s*)\r?\n(\r?\n)*""".trimIndent())
-        val match = headingPattern.find(content)
-        return if (match != null) {
-            // Replace the heading + any trailing blank lines with heading + new line
-            val headingLine = match.groupValues[1].trimEnd()
-            content.replaceRange(match.range, "$headingLine\n$line\n")
-        } else if (createIfMissing) {
-            content.trimEnd() + "\n\n## $heading\n$line\n"
-        } else {
-            content
+    fun insertUnderHeading(
+        content: String,
+        heading: String,
+        line: String,
+        createIfMissing: Boolean = createMissingHeading,
+        atTop: Boolean = true
+    ): String {
+        val lines = content.lines().toMutableList()
+        val headingPattern = Regex("""^##\s+${Regex.escape(heading)}\s*$""", RegexOption.IGNORE_CASE)
+        val nextHeadingPattern = Regex("""^#{1,6}\s+.+""")
+
+        var headingIdx = -1
+        for (i in lines.indices) {
+            if (headingPattern.matches(lines[i])) {
+                headingIdx = i
+                break
+            }
         }
+
+        if (headingIdx == -1) {
+            return if (createIfMissing) {
+                content.trimEnd() + "\n\n## $heading\n$line\n"
+            } else {
+                content
+            }
+        }
+
+        // Last line index of this section (before the next heading, or EOF)
+        var sectionEnd = lines.lastIndex
+        for (i in (headingIdx + 1)..lines.lastIndex) {
+            if (nextHeadingPattern.matches(lines[i])) {
+                sectionEnd = i - 1
+                break
+            }
+        }
+
+        if (atTop) {
+            // Collapse blank lines right under the heading, then insert at top
+            var insertAt = headingIdx + 1
+            while (insertAt <= sectionEnd && insertAt < lines.size && lines[insertAt].isBlank()) {
+                lines.removeAt(insertAt)
+                sectionEnd--
+            }
+            lines.add(insertAt.coerceAtMost(lines.size), line)
+        } else {
+            // Append after the last non-blank content line in the section
+            var lastContent = headingIdx
+            for (i in (headingIdx + 1)..sectionEnd) {
+                if (i < lines.size && lines[i].isNotBlank()) lastContent = i
+            }
+            lines.add((lastContent + 1).coerceAtMost(lines.size), line)
+        }
+
+        return lines.joinToString("\n")
     }
 
     /** Current time formatted with the widget's configured timestampFormat. */
@@ -737,11 +811,13 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         return when (tab) {
             "focus" -> {
                 val clean = text.replace(Regex("""^-\s*(\[[ x]\])?\s*"""), "").trim()
-                insertUnderHeading(content, taskHeading, "- [ ] $clean")
+                // Tasks append at the bottom of the Focus block
+                insertUnderHeading(content, taskHeading, "- [ ] $clean", atTop = false)
             }
             "notes" -> {
                 val time = currentTimeHHmm()
-                insertUnderHeading(content, notesHeading, "- **$time:** $text")
+                // Newest timestamped notes go to the top of the Notes section
+                insertUnderHeading(content, notesHeading, "- **$time:** $text", atTop = true)
             }
             else -> content
         }

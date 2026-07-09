@@ -12,13 +12,19 @@ class ChecklistWidgetService : RemoteViewsService() {
         val widgetId = intent.getIntExtra(
             android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, -1
         )
-        return ChecklistRemoteViewsFactory(applicationContext, widgetId)
+        val forceTab = intent.getStringExtra(EXTRA_FORCE_TAB)
+        return ChecklistRemoteViewsFactory(applicationContext, widgetId, forceTab)
+    }
+
+    companion object {
+        const val EXTRA_FORCE_TAB = "extra_force_tab"
     }
 }
 
 class ChecklistRemoteViewsFactory(
     private val context: Context,
-    private val widgetId: Int
+    private val widgetId: Int,
+    private val forceTab: String? = null
 ) : RemoteViewsService.RemoteViewsFactory {
 
     private var items = listOf<VaultManager.ChecklistItem>()
@@ -52,6 +58,7 @@ class ChecklistRemoteViewsFactory(
             }
             return null
         }
+
         fun markdownToHtml(text: String): CharSequence {
             var html = text
                 .replace("&", "&amp;")
@@ -75,7 +82,7 @@ class ChecklistRemoteViewsFactory(
 
     override fun onDataSetChanged() {
         val vaultManager = VaultManager(context, widgetId)
-        items = vaultManager.parseChecklist()
+        items = vaultManager.parseChecklist(forceTab)
         tapCheckboxOnly = vaultManager.tapCheckboxOnly
         themeColors = vaultManager.getThemeColors()
     }
@@ -106,12 +113,19 @@ class ChecklistRemoteViewsFactory(
 
         if (item.isPlainText) {
             val views = RemoteViews(context.packageName, R.layout.widget_text_item)
+            // Markdown rendering for notes/bullets (bold timestamps, italics, links)
             val displayText = if (item.isBullet) "•  ${item.text}" else item.text
             views.setTextViewText(R.id.text_item_content, markdownToHtml(displayText))
             views.setTextColor(R.id.text_item_content, themeColors.text)
             val density = context.resources.displayMetrics.density
             val indentPx = (item.indentLevel * 16 * density).toInt()
-            views.setViewPadding(R.id.text_item_root, indentPx + (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
+            views.setViewPadding(
+                R.id.text_item_root,
+                indentPx + (4 * density).toInt(),
+                (4 * density).toInt(),
+                (4 * density).toInt(),
+                (4 * density).toInt()
+            )
             val url = extractFirstUrl(item.text)
             if (url != null) {
                 views.setOnClickFillInIntent(R.id.text_item_root, Intent().apply {
@@ -128,7 +142,13 @@ class ChecklistRemoteViewsFactory(
         // Always set padding (reset for non-indented, indent for nested)
         val density = context.resources.displayMetrics.density
         val indentPx = (item.indentLevel * 16 * density).toInt()
-        views.setViewPadding(R.id.checklist_item_root, indentPx + (4 * density).toInt(), (6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt())
+        views.setViewPadding(
+            R.id.checklist_item_root,
+            indentPx + (4 * density).toInt(),
+            (6 * density).toInt(),
+            (4 * density).toInt(),
+            (6 * density).toInt()
+        )
 
         // Set checkbox: circle bg tinted to accent/secondary, white checkmark overlay
         if (item.isChecked) {
@@ -144,8 +164,10 @@ class ChecklistRemoteViewsFactory(
         // Set text with strikethrough if checked
         views.setTextViewText(R.id.checklist_text, markdownToHtml(item.text))
         if (item.isChecked) {
-            views.setInt(R.id.checklist_text, "setPaintFlags",
-                Paint.STRIKE_THRU_TEXT_FLAG or Paint.ANTI_ALIAS_FLAG)
+            views.setInt(
+                R.id.checklist_text, "setPaintFlags",
+                Paint.STRIKE_THRU_TEXT_FLAG or Paint.ANTI_ALIAS_FLAG
+            )
             views.setTextColor(R.id.checklist_text, themeColors.textSecondary)
         } else {
             views.setInt(R.id.checklist_text, "setPaintFlags", Paint.ANTI_ALIAS_FLAG)

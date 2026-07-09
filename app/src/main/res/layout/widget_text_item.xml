@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:gravity="center_vertical"
+    android:gravity="top"
     android:paddingStart="4dp"
     android:paddingEnd="4dp"
     android:paddingTop="4dp"
@@ -12,10 +12,15 @@
 
     <TextView
         android:id="@+id/text_item_content"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:textColor="@color/obsidian_text"
         android:textSize="13sp"
         android:fontFamily="sans-serif"
-        android:lineSpacingExtra="2dp" />
+        android:lineSpacingExtra="2dp"
+        android:maxLines="12"
+        android:ellipsize="end"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none" />
 </LinearLayout>

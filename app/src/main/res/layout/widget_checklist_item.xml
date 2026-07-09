@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:gravity="center_vertical"
+    android:gravity="top"
     android:paddingStart="4dp"
     android:paddingEnd="4dp"
     android:paddingTop="6dp"
@@ -14,6 +14,7 @@
         android:id="@+id/checklist_checkbox"
         android:layout_width="20dp"
         android:layout_height="20dp"
+        android:layout_marginTop="1dp"
         android:layout_marginEnd="12dp">
 
         <ImageView
@@ -40,7 +41,7 @@
         android:textSize="14sp"
         android:fontFamily="sans-serif"
         android:lineSpacingExtra="2dp"
-        android:maxLines="2"
+        android:maxLines="6"
         android:ellipsize="end" />
 
 </LinearLayout>

@@ -9,6 +9,9 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.DocumentsContract
 import android.view.View
 import android.widget.RemoteViews
@@ -41,6 +44,20 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
             context.sendBroadcast(intent)
         }
+
+        /** Refresh only widgets that have Auto Sync enabled (used on screen unlock). */
+        fun updateAutoSyncWidgets(context: Context) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val widgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(context, ObsidianWidgetProvider::class.java)
+            )
+            val provider = ObsidianWidgetProvider()
+            for (id in widgetIds) {
+                if (VaultManager(context, id).autoSync) {
+                    provider.updateWidget(context, appWidgetManager, id)
+                }
+            }
+        }
     }
 
     override fun onUpdate(
@@ -63,7 +80,15 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         when (intent.action) {
-            ACTION_REFRESH -> updateAllWidgets(context)
+            ACTION_REFRESH -> {
+                val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                if (widgetId >= 0) {
+                    updateWidget(context, appWidgetManager, widgetId)
+                } else {
+                    updateAllWidgets(context)
+                }
+            }
             ACTION_CAPTURE -> {
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
                 val captureIntent = Intent(context, QuickCaptureActivity::class.java).apply {
@@ -100,7 +125,10 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
                 if (lineIndex >= 0 && widgetId >= 0) {
                     val vaultManager = VaultManager(context, widgetId)
-                    vaultManager.toggleChecklistItem(lineIndex)
+                    val toggled = vaultManager.toggleChecklistItem(lineIndex)
+                    if (toggled && vaultManager.hapticFeedback) {
+                        performHapticClick(context)
+                    }
                     val appWidgetManager = AppWidgetManager.getInstance(context)
                     updateWidget(context, appWidgetManager, widgetId)
                 }
@@ -120,14 +148,82 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                     val vaultManager = VaultManager(context, widgetId)
                     vaultManager.activeTab = if (intent.action == ACTION_TAB_FOCUS) "focus" else "notes"
                     val appWidgetManager = AppWidgetManager.getInstance(context)
-                    appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_checklist)
-                    updateWidget(context, appWidgetManager, widgetId)
+                    // Partial update keeps the ViewFlipper instance alive so the
+                    // XML slide animation can play (full rebuild would skip it).
+                    applyTabSwitch(context, appWidgetManager, widgetId, vaultManager)
                 }
             }
         }
     }
 
-    private fun updateWidget(
+    private fun performHapticClick(context: Context) {
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                manager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            if (!vibrator.hasVibrator()) return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
+            }
+        } catch (_: Exception) {
+            // Haptics are best-effort
+        }
+    }
+
+    private fun notifyAllListViews(appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist)
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist_focus)
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist_notes)
+    }
+
+    /**
+     * Updates tab chrome + flips the ViewFlipper via partial update so the
+     * configured slide-in/out animations run.
+     */
+    private fun applyTabSwitch(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        vaultManager: VaultManager
+    ) {
+        val views = RemoteViews(context.packageName, R.layout.widget_layout)
+        val accentColor = vaultManager.getThemeColors().accent
+        val inactiveColor = 0x33FFFFFF.toInt()
+        val isFocus = vaultManager.activeTab == "focus"
+
+        views.setInt(
+            R.id.widget_tab_focus, "setBackgroundColor",
+            if (isFocus) accentColor else inactiveColor
+        )
+        views.setInt(
+            R.id.widget_tab_notes, "setBackgroundColor",
+            if (!isFocus) accentColor else inactiveColor
+        )
+        views.setDisplayedChild(R.id.widget_tab_flipper, if (isFocus) 0 else 1)
+
+        // TODO count reflects the active tab's checklist items
+        val items = vaultManager.parseChecklist()
+        val hasChecklist = items.any { !it.isPlainText }
+        if (vaultManager.showTodoCount && hasChecklist) {
+            val unchecked = items.count { !it.isPlainText && !it.isChecked }
+            val total = items.count { !it.isPlainText }
+            views.setTextViewText(R.id.widget_todo_count, "$unchecked of $total remaining")
+            views.setViewVisibility(R.id.widget_todo_count, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_todo_count, View.GONE)
+        }
+
+        appWidgetManager.partiallyUpdateAppWidget(appWidgetId, views)
+    }
+
+    fun updateWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int
@@ -140,17 +236,22 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_date, vaultManager.getWidgetTitle())
 
         // ── Smart Daily Tabs ───────────────────────────────────────────────────
-        if (vaultManager.smartTabsEnabled) {
+        val smartTabs = vaultManager.smartTabsEnabled
+        if (smartTabs) {
             views.setViewVisibility(R.id.widget_tab_bar, View.VISIBLE)
 
             val accentColor = vaultManager.getThemeColors().accent
-            val inactiveColor = 0x33FFFFFF.toInt() // subtle transparent white
+            val inactiveColor = 0x33FFFFFF.toInt()
 
             val isFocus = vaultManager.activeTab == "focus"
-            views.setInt(R.id.widget_tab_focus, "setBackgroundColor",
-                if (isFocus) accentColor else inactiveColor)
-            views.setInt(R.id.widget_tab_notes, "setBackgroundColor",
-                if (!isFocus) accentColor else inactiveColor)
+            views.setInt(
+                R.id.widget_tab_focus, "setBackgroundColor",
+                if (isFocus) accentColor else inactiveColor
+            )
+            views.setInt(
+                R.id.widget_tab_notes, "setBackgroundColor",
+                if (!isFocus) accentColor else inactiveColor
+            )
             views.setTextViewText(R.id.widget_tab_focus, vaultManager.taskHeading)
             views.setTextViewText(R.id.widget_tab_notes, vaultManager.notesHeading)
 
@@ -178,11 +279,14 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         }
 
         // ── Content ────────────────────────────────────────────────────────
-        // Check if note has checklist items
+        // Use list views whenever there is any parseable content (tasks OR notes
+        // bullets). Previously only checklist items enabled the ListView path,
+        // which left the Notes tab stuck on raw TextView preview.
         val allItems = vaultManager.parseChecklist()
+        val hasStructuredItems = allItems.isNotEmpty()
         val hasChecklist = allItems.any { !it.isPlainText }
 
-        // Show TODO count if enabled
+        // Show TODO count if enabled (focus tasks only)
         if (vaultManager.showTodoCount && hasChecklist) {
             val unchecked = allItems.count { !it.isPlainText && !it.isChecked }
             val total = allItems.count { !it.isPlainText }
@@ -192,47 +296,47 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_todo_count, View.GONE)
         }
 
-        if (hasChecklist) {
-            // Show interactive checklist ListView
-            views.setViewVisibility(R.id.widget_checklist, View.VISIBLE)
-            views.setViewVisibility(R.id.widget_note_preview, View.GONE)
+        if (hasStructuredItems || (vaultManager.isVaultConfigured || vaultManager.noteMode == VaultManager.NoteMode.PINNED)) {
+            if (hasStructuredItems || smartTabs) {
+                views.setViewVisibility(R.id.widget_note_preview, View.GONE)
 
-            // Set up RemoteViews adapter for ListView
-            val serviceIntent = Intent(context, ChecklistWidgetService::class.java).apply {
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
-            }
-            views.setRemoteAdapter(R.id.widget_checklist, serviceIntent)
+                if (smartTabs) {
+                    // Dual ListViews inside ViewFlipper for slide transition
+                    views.setViewVisibility(R.id.widget_tab_flipper, View.VISIBLE)
+                    views.setViewVisibility(R.id.widget_checklist, View.GONE)
 
-            // Set up pending intent template for item clicks (toggle)
-            val toggleIntent = Intent(context, ObsidianWidgetProvider::class.java).apply {
-                action = ACTION_TOGGLE
-                putExtra(EXTRA_WIDGET_ID, appWidgetId)
-            }
-            val togglePendingIntent = PendingIntent.getBroadcast(
-                context, appWidgetId, toggleIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-            views.setPendingIntentTemplate(R.id.widget_checklist, togglePendingIntent)
+                    bindListView(context, views, appWidgetId, R.id.widget_checklist_focus, "focus")
+                    bindListView(context, views, appWidgetId, R.id.widget_checklist_notes, "notes")
 
-            // Notify data changed
-            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist)
+                    // Flip to the active tab (triggers XML slide animation)
+                    val child = if (vaultManager.activeTab == "notes") 1 else 0
+                    views.setDisplayedChild(R.id.widget_tab_flipper, child)
 
-        } else {
-            // Show plain text preview
-            views.setViewVisibility(R.id.widget_checklist, View.GONE)
-            views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
+                    notifyAllListViews(appWidgetManager, appWidgetId)
+                } else {
+                    views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+                    views.setViewVisibility(R.id.widget_checklist, View.VISIBLE)
 
-            if (vaultManager.isVaultConfigured || vaultManager.noteMode == VaultManager.NoteMode.PINNED) {
+                    bindListView(context, views, appWidgetId, R.id.widget_checklist, forceTab = null)
+                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist)
+                }
+            } else {
+                // Configured vault but empty note — plain preview
+                views.setViewVisibility(R.id.widget_checklist, View.GONE)
+                views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+                views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
                 val noteContent = vaultManager.getDisplayContent()
                 val preview = noteContent?.take(500) ?: context.getString(R.string.no_daily_note)
                 views.setTextViewText(R.id.widget_note_preview, preview)
-            } else {
-                views.setTextViewText(
-                    R.id.widget_note_preview,
-                    context.getString(R.string.no_vault_selected)
-                )
             }
+        } else {
+            views.setViewVisibility(R.id.widget_checklist, View.GONE)
+            views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+            views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
+            views.setTextViewText(
+                R.id.widget_note_preview,
+                context.getString(R.string.no_vault_selected)
+            )
         }
 
         // Add to note button
@@ -271,11 +375,16 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             )
         )
 
-        // Refresh button
-        views.setOnClickPendingIntent(
-            R.id.widget_refresh,
-            createActionIntent(context, ACTION_REFRESH, appWidgetId)
-        )
+        // Manual refresh — only when Auto Sync is off
+        if (vaultManager.autoSync) {
+            views.setViewVisibility(R.id.widget_refresh, View.GONE)
+        } else {
+            views.setViewVisibility(R.id.widget_refresh, View.VISIBLE)
+            views.setOnClickPendingIntent(
+                R.id.widget_refresh,
+                createActionIntent(context, ACTION_REFRESH, appWidgetId)
+            )
+        }
 
         // Quick capture button
         views.setOnClickPendingIntent(
@@ -301,8 +410,10 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         // Apply theme colors
         val colors = vaultManager.getThemeColors()
         val isDark = vaultManager.widgetTheme == "dark"
-        views.setInt(R.id.widget_root, "setBackgroundResource",
-            if (isDark) R.drawable.widget_background else R.drawable.widget_background_light)
+        views.setInt(
+            R.id.widget_root, "setBackgroundResource",
+            if (isDark) R.drawable.widget_background else R.drawable.widget_background_light
+        )
         views.setTextColor(R.id.widget_date, colors.text)
         views.setTextColor(R.id.widget_note_preview, colors.textSecondary)
         views.setTextColor(R.id.widget_todo_count, colors.textSecondary)
@@ -312,14 +423,48 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         views.setInt(R.id.widget_settings, "setColorFilter", colors.text)
         views.setInt(R.id.widget_cycle_note, "setColorFilter", colors.text)
 
-        // Tint accent-colored buttons (preserves rounded drawable shape)
+        // Tint accent-colored buttons (preserves rounded drawable shape on API 31+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val accentTint = ColorStateList.valueOf(colors.accent)
             views.setColorStateList(R.id.widget_btn_capture, "setBackgroundTintList", accentTint)
             views.setColorStateList(R.id.widget_add, "setBackgroundTintList", accentTint)
+        } else {
+            // Pre-S: best-effort background color (may square corners on some OEMs)
+            views.setInt(R.id.widget_btn_capture, "setBackgroundColor", colors.accent)
+            views.setInt(R.id.widget_add, "setBackgroundColor", colors.accent)
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views)
+    }
+
+    private fun bindListView(
+        context: Context,
+        views: RemoteViews,
+        appWidgetId: Int,
+        listViewId: Int,
+        forceTab: String?
+    ) {
+        val serviceIntent = Intent(context, ChecklistWidgetService::class.java).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            if (forceTab != null) {
+                putExtra(ChecklistWidgetService.EXTRA_FORCE_TAB, forceTab)
+            }
+            // Unique data URI so each remote adapter is a distinct service instance
+            data = Uri.parse("content://com.obsidianwidget.checklist/$appWidgetId/${forceTab ?: "all"}")
+        }
+        views.setRemoteAdapter(listViewId, serviceIntent)
+
+        val toggleIntent = Intent(context, ObsidianWidgetProvider::class.java).apply {
+            action = ACTION_TOGGLE
+            putExtra(EXTRA_WIDGET_ID, appWidgetId)
+        }
+        // Unique request code per list view so PendingIntents don't collide
+        val requestCode = appWidgetId * 10 + listViewId % 10
+        val togglePendingIntent = PendingIntent.getBroadcast(
+            context, requestCode, toggleIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
+        views.setPendingIntentTemplate(listViewId, togglePendingIntent)
     }
 
     private fun createActionIntent(context: Context, action: String, appWidgetId: Int): PendingIntent {
