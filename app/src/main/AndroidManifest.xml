@@ -46,6 +46,16 @@
             </intent-filter>
         </activity>
 
+        <!-- Foreground trampoline so widget toggles can vibrate on picky OEMs -->
+        <activity
+            android:name=".HapticClickActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ObsidianWidget.Haptic"
+            android:finishOnTaskLaunch="true" />
+
         <receiver
             android:name=".ObsidianWidgetProvider"
             android:exported="true">

@@ -135,6 +135,7 @@
             android:ellipsize="end"
             android:visibility="gone" />
 
+        <!-- Stable content: NO ViewFlipper — todo toggles only rebind lists (never slides) -->
         <ListView
             android:id="@+id/widget_checklist"
             android:layout_width="match_parent"
@@ -151,47 +152,39 @@
             android:paddingBottom="2dp"
             android:clipToPadding="false" />
 
-        <!-- No animations here — avoids re-slide on data refresh / todo toggle -->
-        <ViewFlipper
-            android:id="@+id/widget_tab_flipper"
+        <ListView
+            android:id="@+id/widget_checklist_focus"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:autoStart="false"
-            android:animateFirstView="false"
-            android:visibility="gone">
+            android:divider="@android:color/transparent"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical"
+            android:fadeScrollbars="true"
+            android:scrollbarStyle="insideOverlay"
+            android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
+            android:scrollbarSize="3dp"
+            android:fadingEdge="vertical"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:clipToPadding="false"
+            android:visibility="gone" />
 
-            <ListView
-                android:id="@+id/widget_checklist_focus"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:divider="@android:color/transparent"
-                android:dividerHeight="0dp"
-                android:scrollbars="vertical"
-                android:fadeScrollbars="true"
-                android:scrollbarStyle="insideOverlay"
-                android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
-                android:scrollbarSize="3dp"
-                android:fadingEdge="vertical"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:clipToPadding="false" />
-
-            <ListView
-                android:id="@+id/widget_checklist_notes"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:divider="@android:color/transparent"
-                android:dividerHeight="0dp"
-                android:scrollbars="vertical"
-                android:fadeScrollbars="true"
-                android:scrollbarStyle="insideOverlay"
-                android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
-                android:scrollbarSize="3dp"
-                android:fadingEdge="vertical"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:clipToPadding="false" />
-        </ViewFlipper>
+        <ListView
+            android:id="@+id/widget_checklist_notes"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical"
+            android:fadeScrollbars="true"
+            android:scrollbarStyle="insideOverlay"
+            android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
+            android:scrollbarSize="3dp"
+            android:fadingEdge="vertical"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:clipToPadding="false"
+            android:visibility="gone" />
     </FrameLayout>
 
     <!-- Bottom action buttons with icons -->

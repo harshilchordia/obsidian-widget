@@ -9,10 +9,8 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
-import android.os.VibrationAttributes
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
+import android.os.Handler
+import android.os.Looper
 import android.provider.DocumentsContract
 import android.view.View
 import android.widget.RemoteViews
@@ -126,10 +124,12 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 if (lineIndex >= 0 && widgetId >= 0) {
                     val vaultManager = VaultManager(context, widgetId)
                     if (vaultManager.hapticFeedback) {
-                        performHapticClick(context)
+                        // BroadcastReceiver vibration is ignored on many OEMs —
+                        // trampoline Activity runs haptics from a foreground context.
+                        triggerHaptic(context)
                     }
                     vaultManager.toggleChecklistItem(lineIndex)
-                    // Lightweight refresh only — never re-inflate flipper (that caused bogus slides)
+                    // List data only — stable layout has no ViewFlipper so no slide
                     val appWidgetManager = AppWidgetManager.getInstance(context)
                     refreshListData(appWidgetManager, widgetId, vaultManager)
                     updateTodoCountPartial(context, appWidgetManager, widgetId, vaultManager)
@@ -154,7 +154,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
 
                     vaultManager.activeTab = toTab
                     val appWidgetManager = AppWidgetManager.getInstance(context)
-                    // Directional slide: Focus→Notes = LTR, Notes→Focus = RTL
+                    // Directional slide via anim layout, then snap back to stable (no flipper)
                     updateWidget(
                         context,
                         appWidgetManager,
@@ -167,54 +167,35 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                         animateFromTab = fromTab,
                         animateToTab = toTab
                     )
+                    // After the 280ms slide, restore stable layout so later todo
+                    // toggles never sit on an animated ViewFlipper.
+                    val appCtx = context.applicationContext
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        updateWidget(appCtx, AppWidgetManager.getInstance(appCtx), widgetId)
+                    }, 300)
                 }
             }
         }
     }
 
-    private fun performHapticClick(context: Context) {
+    /**
+     * Widget haptics: OEMs often block [android.os.Vibrator] from AppWidgetProvider.
+     * Starting a transparent no-UI activity is the reliable approach (Stack Overflow /
+     * common widget practice). Requires VIBRATE permission.
+     */
+    private fun triggerHaptic(context: Context) {
         try {
-            val appContext = context.applicationContext
-            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                appContext.getSystemService(VibratorManager::class.java)?.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                appContext.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-            } ?: return
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !vibrator.hasVibrator()) return
-
-            val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                try {
-                    VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
-                } catch (_: Exception) {
-                    VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE)
-                }
-            } else {
-                VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE)
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                vibrator.vibrate(
-                    effect,
-                    VibrationAttributes.Builder()
-                        .setUsage(VibrationAttributes.USAGE_TOUCH)
-                        .build()
+            val intent = Intent(context, HapticClickActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
+                        Intent.FLAG_ACTIVITY_NO_HISTORY
                 )
-            } else {
-                vibrator.vibrate(effect)
             }
+            context.startActivity(intent)
         } catch (_: Exception) {
-            try {
-                @Suppress("DEPRECATION")
-                val v = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    v.vibrate(VibrationEffect.createOneShot(25, 180))
-                } else {
-                    @Suppress("DEPRECATION")
-                    v.vibrate(25)
-                }
-            } catch (_: Exception) { }
+            // Best-effort only
         }
     }
 
@@ -299,46 +280,61 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         val hasStructuredItems = allItems.isNotEmpty()
         applyTodoCount(views, vaultManager)
 
+        // True only for the temporary slide layouts (they contain a ViewFlipper).
+        val isSlideLayout =
+            layoutRes == R.layout.widget_layout_slide_ltr ||
+                layoutRes == R.layout.widget_layout_slide_rtl
+
         if (hasStructuredItems || vaultManager.isVaultConfigured || vaultManager.noteMode == VaultManager.NoteMode.PINNED) {
             if (hasStructuredItems || smartTabs) {
                 views.setViewVisibility(R.id.widget_note_preview, View.GONE)
 
                 if (smartTabs) {
                     views.setViewVisibility(R.id.widget_checklist, View.GONE)
-                    views.setViewVisibility(R.id.widget_tab_flipper, View.VISIBLE)
-
                     bindListView(context, views, appWidgetId, R.id.widget_checklist_focus, "focus")
                     bindListView(context, views, appWidgetId, R.id.widget_checklist_notes, "notes")
 
-                    /*
-                     * Directional slide:
-                     * inflate a layout whose ViewFlipper already has the correct
-                     * in/out animations, then queue setDisplayedChild(from) then
-                     * setDisplayedChild(to). On a fresh inflate the first call is
-                     * non-animated (mFirstTime), the second plays the slide.
-                     *
-                     * Normal refreshes use widget_layout (no flipper anims) and a
-                     * single setDisplayedChild so todo toggles never re-slide.
-                     */
-                    if (animateFromTab != null && animateToTab != null && animateFromTab != animateToTab) {
-                        val fromIdx = if (animateFromTab == "focus") 0 else 1
-                        val toIdx = if (animateToTab == "focus") 0 else 1
-                        views.setDisplayedChild(R.id.widget_tab_flipper, fromIdx)
-                        views.setDisplayedChild(R.id.widget_tab_flipper, toIdx)
+                    if (isSlideLayout) {
+                        // Animated tab switch only — ViewFlipper exists in slide layouts
+                        views.setViewVisibility(R.id.widget_tab_flipper, View.VISIBLE)
+                        if (animateFromTab != null && animateToTab != null && animateFromTab != animateToTab) {
+                            val fromIdx = if (animateFromTab == "focus") 0 else 1
+                            val toIdx = if (animateToTab == "focus") 0 else 1
+                            views.setDisplayedChild(R.id.widget_tab_flipper, fromIdx)
+                            views.setDisplayedChild(R.id.widget_tab_flipper, toIdx)
+                        } else {
+                            views.setDisplayedChild(R.id.widget_tab_flipper, if (isFocus) 0 else 1)
+                        }
                     } else {
-                        views.setDisplayedChild(R.id.widget_tab_flipper, if (isFocus) 0 else 1)
+                        // Stable layout: plain visibility — checking todos never slides
+                        views.setViewVisibility(
+                            R.id.widget_checklist_focus,
+                            if (isFocus) View.VISIBLE else View.GONE
+                        )
+                        views.setViewVisibility(
+                            R.id.widget_checklist_notes,
+                            if (isFocus) View.GONE else View.VISIBLE
+                        )
                     }
 
                     refreshListData(appWidgetManager, appWidgetId, vaultManager)
                 } else {
-                    views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+                    if (isSlideLayout) {
+                        views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+                    }
+                    views.setViewVisibility(R.id.widget_checklist_focus, View.GONE)
+                    views.setViewVisibility(R.id.widget_checklist_notes, View.GONE)
                     views.setViewVisibility(R.id.widget_checklist, View.VISIBLE)
                     bindListView(context, views, appWidgetId, R.id.widget_checklist, forceTab = null)
                     appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist)
                 }
             } else {
                 views.setViewVisibility(R.id.widget_checklist, View.GONE)
-                views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+                views.setViewVisibility(R.id.widget_checklist_focus, View.GONE)
+                views.setViewVisibility(R.id.widget_checklist_notes, View.GONE)
+                if (isSlideLayout) {
+                    views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+                }
                 views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
                 val noteContent = vaultManager.getDisplayContent()
                 val preview = noteContent?.take(500) ?: context.getString(R.string.no_daily_note)
@@ -346,7 +342,11 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             }
         } else {
             views.setViewVisibility(R.id.widget_checklist, View.GONE)
-            views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+            views.setViewVisibility(R.id.widget_checklist_focus, View.GONE)
+            views.setViewVisibility(R.id.widget_checklist_notes, View.GONE)
+            if (isSlideLayout) {
+                views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
+            }
             views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
             views.setTextViewText(
                 R.id.widget_note_preview,

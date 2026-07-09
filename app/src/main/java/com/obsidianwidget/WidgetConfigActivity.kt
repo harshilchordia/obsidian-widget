@@ -448,9 +448,26 @@ class WidgetConfigActivity : AppCompatActivity() {
                 ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 60))
         }
 
-        // Solid accent backgrounds (more reliable than tint lists on Material buttons)
+        // Material3 Button ignores custom backgrounds and keeps theme colorPrimary
+        // (orange) via backgroundTint — set the tint explicitly to the widget accent.
+        saveButton.backgroundTintList = tint
         saveButton.background = roundedAccentButton(accent, 20f)
-        findViewById<Button>(R.id.config_select_vault).background = roundedAccentButton(accent, 18f)
+        // Clear any leftover theme tint that would paint over our drawable
+        saveButton.backgroundTintList = ColorStateList.valueOf(accent)
+
+        val selectVault = findViewById<Button>(R.id.config_select_vault)
+        selectVault.background = roundedAccentButton(accent, 18f)
+        selectVault.backgroundTintList = ColorStateList.valueOf(accent)
+
+        // Also tint filled Material ripple if present
+        try {
+            val materialSave = saveButton as? com.google.android.material.button.MaterialButton
+            materialSave?.backgroundTintList = ColorStateList.valueOf(accent)
+            materialSave?.rippleColor =
+                ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 80))
+            val materialSelect = selectVault as? com.google.android.material.button.MaterialButton
+            materialSelect?.backgroundTintList = ColorStateList.valueOf(accent)
+        } catch (_: Exception) { }
     }
 
     override fun onUserLeaveHint() {

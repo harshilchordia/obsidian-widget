@@ -802,7 +802,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     /**
      * Tab-aware smart capture:
      * - "focus" tab  → strips leading dash/task syntax → inserts as "- [ ] task" under taskHeading
-     * - "notes" tab  → inserts as "- **HH:mm:** text" under notesHeading
+     * - "notes" tab  → inserts as "- HH:mm text" under notesHeading (newest first)
      * Falls back gracefully to plain append if headings can't be found and createMissingHeading is off.
      */
     fun smartCapture(content: String, input: String, tab: String = activeTab): String {
@@ -816,8 +816,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             }
             "notes" -> {
                 val time = currentTimeHHmm()
-                // Newest timestamped notes go to the top of the Notes section
-                insertUnderHeading(content, notesHeading, "- **$time:** $text", atTop = true)
+                // Newest notes at top: plain bullet + time + text (e.g. "- 16:29 Bought milk")
+                insertUnderHeading(content, notesHeading, "- $time $text", atTop = true)
             }
             else -> content
         }
