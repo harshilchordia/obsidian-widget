@@ -19,16 +19,32 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     data class ChecklistItem(
         val lineIndex: Int,
+        /** Display text without completion marker. */
         val text: String,
         val isChecked: Boolean,
         val isPlainText: Boolean = false,
         val isHeading: Boolean = false,
         val isBullet: Boolean = false,
-        val indentLevel: Int = 0
+        val indentLevel: Int = 0,
+        /** Grey meta label, e.g. "Completed 14:30". */
+        val completedLabel: String? = null
     )
 
     companion object {
         private const val PREFS_NAME = "obsidian_widget_prefs"
+        /** Appended when a task is checked: ` ✅ HH:mm` or ` ✅ yyyy-MM-dd HH:mm` */
+        private val COMPLETION_SUFFIX = Regex(
+            """\s*✅\s*((?:\d{4}-\d{2}-\d{2}\s+)?\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2})\s*$"""
+        )
+
+        fun stripCompletionMarker(text: String): String =
+            text.replace(COMPLETION_SUFFIX, "").trimEnd()
+
+        fun parseCompletionLabel(text: String): String? {
+            val m = COMPLETION_SUFFIX.find(text) ?: return null
+            val stamp = m.groupValues[1].trim()
+            return if (stamp.isNotEmpty()) "Completed $stamp" else "Completed"
+        }
         // Global keys (shared across all widgets)
         private const val KEY_VAULT_URI = "vault_uri"
         private const val KEY_VAULT_NAME = "vault_name"
@@ -633,8 +649,18 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 val indent = match.groupValues[1]
                 val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
                 val checked = match.groupValues[2].lowercase() == "x"
-                val text = match.groupValues[3].trim()
-                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked, indentLevel = indentLevel))
+                val rawText = match.groupValues[3].trim()
+                val completedLabel = if (checked) parseCompletionLabel(rawText) else null
+                val text = stripCompletionMarker(rawText)
+                items.add(
+                    ChecklistItem(
+                        lineIndex = index,
+                        text = text,
+                        isChecked = checked,
+                        indentLevel = indentLevel,
+                        completedLabel = completedLabel
+                    )
+                )
             } else if (headingMatch != null) {
                 if (skipUntilHeading && !headingFound) {
                     // Mark that we've passed the first heading; skip the heading line itself
@@ -956,6 +982,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     /**
      * Toggle a checklist item by its line index in the current widget note.
+     * Checking appends ` ✅ HH:mm`; unchecking removes any completion stamp.
      */
     fun toggleChecklistItem(lineIndex: Int): Boolean {
         val noteUri = getWidgetNoteUri() ?: return false
@@ -969,12 +996,71 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
         val indent = match.groupValues[1]
         val currentState = match.groupValues[2]
-        val text = match.groupValues[3]
+        val rawText = match.groupValues[3].trim()
+        val cleanText = stripCompletionMarker(rawText)
 
-        val newState = if (currentState.lowercase() == "x") " " else "x"
-        lines[lineIndex] = "$indent- [$newState] $text"
+        val wasChecked = currentState.lowercase() == "x"
+        lines[lineIndex] = if (wasChecked) {
+            "$indent- [ ] $cleanText"
+        } else {
+            val stamp = currentTimeHHmm()
+            "$indent- [x] $cleanText ✅ $stamp"
+        }
 
         return writeFileContent(noteUri, lines.joinToString("\n"))
+    }
+
+    /** Delete the entire line at [lineIndex] from the widget note. */
+    fun deleteChecklistItem(lineIndex: Int): Boolean {
+        val noteUri = getWidgetNoteUri() ?: return false
+        val content = readFileContent(noteUri) ?: return false
+        val lines = content.lines().toMutableList()
+        if (lineIndex < 0 || lineIndex >= lines.size) return false
+        lines.removeAt(lineIndex)
+        // Avoid leaving triple blank lines after deletion
+        val cleaned = lines.joinToString("\n").replace(Regex("\n{3,}"), "\n\n")
+        return writeFileContent(noteUri, cleaned)
+    }
+
+    /**
+     * Replace the task text of a checklist line (preserves check state + completion stamp rules).
+     * If [newText] is blank, deletes the line instead.
+     */
+    fun updateChecklistItemText(lineIndex: Int, newText: String): Boolean {
+        val cleaned = newText.trim()
+        if (cleaned.isEmpty()) return deleteChecklistItem(lineIndex)
+
+        val noteUri = getWidgetNoteUri() ?: return false
+        val content = readFileContent(noteUri) ?: return false
+        val lines = content.lines().toMutableList()
+        if (lineIndex < 0 || lineIndex >= lines.size) return false
+
+        val line = lines[lineIndex]
+        val match = CHECKLIST_REGEX.matchEntire(line) ?: return false
+        val indent = match.groupValues[1]
+        val state = match.groupValues[2]
+        val wasChecked = state.lowercase() == "x"
+        val prevRaw = match.groupValues[3].trim()
+        val prevStamp = COMPLETION_SUFFIX.find(prevRaw)?.groupValues?.get(1)
+
+        val body = stripCompletionMarker(cleaned)
+        lines[lineIndex] = if (wasChecked) {
+            val stamp = prevStamp ?: currentTimeHHmm()
+            "$indent- [x] $body ✅ $stamp"
+        } else {
+            "$indent- [ ] $body"
+        }
+        return writeFileContent(noteUri, lines.joinToString("\n"))
+    }
+
+    /** Read raw checklist task text (without checkbox syntax) for editing. */
+    fun getChecklistItemText(lineIndex: Int): String? {
+        val noteUri = getWidgetNoteUri() ?: return null
+        val content = readFileContent(noteUri) ?: return null
+        val lines = content.lines()
+        if (lineIndex < 0 || lineIndex >= lines.size) return null
+        val match = CHECKLIST_REGEX.matchEntire(lines[lineIndex]) ?: return null
+        return stripCompletionMarker(match.groupValues[3].trim())
     }
 
     /**

@@ -5,43 +5,89 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="top"
-    android:paddingStart="4dp"
-    android:paddingEnd="4dp"
+    android:paddingStart="2dp"
+    android:paddingEnd="0dp"
     android:paddingTop="6dp"
     android:paddingBottom="6dp">
 
+    <!-- Checkbox (toggle) -->
     <FrameLayout
         android:id="@+id/checklist_checkbox"
-        android:layout_width="20dp"
-        android:layout_height="20dp"
-        android:layout_marginTop="1dp"
-        android:layout_marginEnd="12dp">
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="10dp">
 
         <ImageView
             android:id="@+id/checklist_checkbox_bg"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
             android:contentDescription="Toggle"
             android:src="@drawable/ic_checkbox_unchecked" />
 
         <ImageView
             android:id="@+id/checklist_checkbox_mark"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
             android:src="@drawable/ic_checkmark"
             android:visibility="gone" />
     </FrameLayout>
 
-    <TextView
-        android:id="@+id/checklist_text"
+    <!-- Text + completed meta -->
+    <LinearLayout
+        android:id="@+id/checklist_text_col"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textColor="@color/obsidian_text"
-        android:textSize="14sp"
-        android:fontFamily="sans-serif"
-        android:lineSpacingExtra="2dp"
-        android:maxLines="6"
-        android:ellipsize="end" />
+        android:orientation="vertical"
+        android:layout_marginEnd="4dp">
+
+        <TextView
+            android:id="@+id/checklist_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/obsidian_text"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif"
+            android:lineSpacingExtra="2dp"
+            android:maxLines="5"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/checklist_completed_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#6B6B70"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Edit -->
+    <ImageButton
+        android:id="@+id/checklist_btn_edit"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginTop="0dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="Edit task"
+        android:padding="5dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_edit" />
+
+    <!-- Delete -->
+    <ImageButton
+        android:id="@+id/checklist_btn_delete"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginTop="0dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="Delete task"
+        android:padding="5dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_delete" />
 
 </LinearLayout>

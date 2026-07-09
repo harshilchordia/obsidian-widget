@@ -37,6 +37,13 @@
             android:excludeFromRecents="true" />
 
         <activity
+            android:name=".TaskEditActivity"
+            android:label="Edit Task"
+            android:exported="false"
+            android:theme="@style/Theme.ObsidianWidget.Dialog"
+            android:excludeFromRecents="true" />
+
+        <activity
             android:name=".WidgetConfigActivity"
             android:exported="true"
             android:taskAffinity=""
@@ -62,6 +69,7 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.obsidianwidget.ACTION_TOGGLE" />
+                <action android:name="com.obsidianwidget.ACTION_TASK" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

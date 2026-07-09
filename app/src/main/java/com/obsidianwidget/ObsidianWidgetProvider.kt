@@ -20,6 +20,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         private const val ACTION_CAPTURE = "com.obsidianwidget.ACTION_CAPTURE"
         private const val ACTION_OPEN = "com.obsidianwidget.ACTION_OPEN"
         private const val ACTION_TOGGLE = "com.obsidianwidget.ACTION_TOGGLE"
+        private const val ACTION_TASK = "com.obsidianwidget.ACTION_TASK"
         private const val ACTION_ADD = "com.obsidianwidget.ACTION_ADD"
         private const val ACTION_NAV_LEFT = "com.obsidianwidget.ACTION_NAV_LEFT"
         private const val ACTION_NAV_RIGHT = "com.obsidianwidget.ACTION_NAV_RIGHT"
@@ -29,6 +30,10 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         const val EXTRA_APPEND_TO_WIDGET = "extra_append_to_widget"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
         const val EXTRA_URL = "extra_url"
+        const val EXTRA_TASK_ACTION = "extra_task_action"
+        const val TASK_TOGGLE = "toggle"
+        const val TASK_EDIT = "edit"
+        const val TASK_DELETE = "delete"
 
         fun updateAllWidgets(context: Context) {
             val intent = Intent(context, ObsidianWidgetProvider::class.java).apply {
@@ -120,7 +125,7 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
                 openObsidian(context, widgetId)
             }
-            ACTION_TOGGLE -> {
+            ACTION_TOGGLE, ACTION_TASK -> {
                 val url = intent.getStringExtra(EXTRA_URL)
                 if (!url.isNullOrEmpty()) {
                     try {
@@ -133,18 +138,35 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 }
                 val lineIndex = intent.getIntExtra(EXTRA_LINE_INDEX, -1)
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
-                if (lineIndex >= 0 && widgetId >= 0) {
-                    val vaultManager = VaultManager(context, widgetId)
-                    if (vaultManager.hapticFeedback) {
-                        // BroadcastReceiver vibration is ignored on many OEMs —
-                        // trampoline Activity runs haptics from a foreground context.
-                        triggerHaptic(context)
+                val taskAction = intent.getStringExtra(EXTRA_TASK_ACTION) ?: TASK_TOGGLE
+                if (lineIndex < 0 || widgetId < 0) return
+
+                when (taskAction) {
+                    TASK_EDIT -> {
+                        val editIntent = Intent(context, TaskEditActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            putExtra(EXTRA_WIDGET_ID, widgetId)
+                            putExtra(EXTRA_LINE_INDEX, lineIndex)
+                        }
+                        context.startActivity(editIntent)
                     }
-                    vaultManager.toggleChecklistItem(lineIndex)
-                    // List data only — stable layout has no ViewFlipper so no slide
-                    val appWidgetManager = AppWidgetManager.getInstance(context)
-                    refreshListData(appWidgetManager, widgetId, vaultManager)
-                    updateTodoCountPartial(context, appWidgetManager, widgetId, vaultManager)
+                    TASK_DELETE -> {
+                        val vaultManager = VaultManager(context, widgetId)
+                        if (vaultManager.hapticFeedback) triggerHaptic(context)
+                        vaultManager.deleteChecklistItem(lineIndex)
+                        val appWidgetManager = AppWidgetManager.getInstance(context)
+                        refreshListData(appWidgetManager, widgetId, vaultManager)
+                        updateTodoCountPartial(context, appWidgetManager, widgetId, vaultManager)
+                    }
+                    else -> {
+                        // toggle
+                        val vaultManager = VaultManager(context, widgetId)
+                        if (vaultManager.hapticFeedback) triggerHaptic(context)
+                        vaultManager.toggleChecklistItem(lineIndex)
+                        val appWidgetManager = AppWidgetManager.getInstance(context)
+                        refreshListData(appWidgetManager, widgetId, vaultManager)
+                        updateTodoCountPartial(context, appWidgetManager, widgetId, vaultManager)
+                    }
                 }
             }
             ACTION_NAV_LEFT, ACTION_NAV_RIGHT -> {
@@ -485,16 +507,16 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         }
         views.setRemoteAdapter(listViewId, serviceIntent)
 
-        val toggleIntent = Intent(context, ObsidianWidgetProvider::class.java).apply {
-            action = ACTION_TOGGLE
+        val taskIntent = Intent(context, ObsidianWidgetProvider::class.java).apply {
+            action = ACTION_TASK
             putExtra(EXTRA_WIDGET_ID, appWidgetId)
         }
         val requestCode = appWidgetId * 31 + listViewId
-        val togglePendingIntent = PendingIntent.getBroadcast(
-            context, requestCode, toggleIntent,
+        val taskPendingIntent = PendingIntent.getBroadcast(
+            context, requestCode, taskIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
-        views.setPendingIntentTemplate(listViewId, togglePendingIntent)
+        views.setPendingIntentTemplate(listViewId, taskPendingIntent)
     }
 
     private fun createActionIntent(context: Context, action: String, appWidgetId: Int): PendingIntent {
