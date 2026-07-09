@@ -9,8 +9,6 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.provider.DocumentsContract
 import android.view.View
 import android.widget.RemoteViews
@@ -148,31 +146,14 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, -1)
                 if (widgetId >= 0) {
                     val vaultManager = VaultManager(context, widgetId)
-                    val fromTab = vaultManager.activeTab
                     val toTab = if (intent.action == ACTION_TAB_FOCUS) "focus" else "notes"
-                    if (fromTab == toTab) return // re-tap: do nothing
+                    if (vaultManager.activeTab == toTab) return // re-tap: do nothing
 
                     vaultManager.activeTab = toTab
                     val appWidgetManager = AppWidgetManager.getInstance(context)
-                    // Directional slide via anim layout, then snap back to stable (no flipper)
-                    updateWidget(
-                        context,
-                        appWidgetManager,
-                        widgetId,
-                        layoutRes = if (toTab == "notes") {
-                            R.layout.widget_layout_slide_ltr
-                        } else {
-                            R.layout.widget_layout_slide_rtl
-                        },
-                        animateFromTab = fromTab,
-                        animateToTab = toTab
-                    )
-                    // After the 280ms slide, restore stable layout so later todo
-                    // toggles never sit on an animated ViewFlipper.
-                    val appCtx = context.applicationContext
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        updateWidget(appCtx, AppWidgetManager.getInstance(appCtx), widgetId)
-                    }, 300)
+                    // Partial update only — swap list visibility + tab chrome.
+                    // Avoids full re-inflate flash from slide layouts / delayed rebuilds.
+                    applyTabSwitch(context, appWidgetManager, widgetId, vaultManager)
                 }
             }
         }
@@ -236,15 +217,44 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    fun updateWidget(
+    /**
+     * Switch Focus/Notes without rebuilding the whole RemoteViews tree
+     * (full rebuild was causing flash / re-render).
+     */
+    private fun applyTabSwitch(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        layoutRes: Int = R.layout.widget_layout,
-        animateFromTab: String? = null,
-        animateToTab: String? = null
+        vaultManager: VaultManager
     ) {
-        val views = RemoteViews(context.packageName, layoutRes)
+        val views = RemoteViews(context.packageName, R.layout.widget_layout)
+        val colors = vaultManager.getThemeColors()
+        val isFocus = vaultManager.activeTab == "focus"
+
+        styleTab(views, R.id.widget_tab_focus, isFocus, colors.accent)
+        styleTab(views, R.id.widget_tab_notes, !isFocus, colors.accent)
+
+        views.setViewVisibility(R.id.widget_checklist, View.GONE)
+        views.setViewVisibility(
+            R.id.widget_checklist_focus,
+            if (isFocus) View.VISIBLE else View.GONE
+        )
+        views.setViewVisibility(
+            R.id.widget_checklist_notes,
+            if (isFocus) View.GONE else View.VISIBLE
+        )
+        views.setViewVisibility(R.id.widget_note_preview, View.GONE)
+
+        applyTodoCount(views, vaultManager)
+        appWidgetManager.partiallyUpdateAppWidget(appWidgetId, views)
+    }
+
+    fun updateWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int
+    ) {
+        val views = RemoteViews(context.packageName, R.layout.widget_layout)
         val vaultManager = VaultManager(context, appWidgetId)
 
         val noteCount =
@@ -280,48 +290,24 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         val hasStructuredItems = allItems.isNotEmpty()
         applyTodoCount(views, vaultManager)
 
-        // True only for the temporary slide layouts (they contain a ViewFlipper).
-        val isSlideLayout =
-            layoutRes == R.layout.widget_layout_slide_ltr ||
-                layoutRes == R.layout.widget_layout_slide_rtl
-
         if (hasStructuredItems || vaultManager.isVaultConfigured || vaultManager.noteMode == VaultManager.NoteMode.PINNED) {
             if (hasStructuredItems || smartTabs) {
                 views.setViewVisibility(R.id.widget_note_preview, View.GONE)
 
                 if (smartTabs) {
                     views.setViewVisibility(R.id.widget_checklist, View.GONE)
+                    views.setViewVisibility(
+                        R.id.widget_checklist_focus,
+                        if (isFocus) View.VISIBLE else View.GONE
+                    )
+                    views.setViewVisibility(
+                        R.id.widget_checklist_notes,
+                        if (isFocus) View.GONE else View.VISIBLE
+                    )
                     bindListView(context, views, appWidgetId, R.id.widget_checklist_focus, "focus")
                     bindListView(context, views, appWidgetId, R.id.widget_checklist_notes, "notes")
-
-                    if (isSlideLayout) {
-                        // Animated tab switch only — ViewFlipper exists in slide layouts
-                        views.setViewVisibility(R.id.widget_tab_flipper, View.VISIBLE)
-                        if (animateFromTab != null && animateToTab != null && animateFromTab != animateToTab) {
-                            val fromIdx = if (animateFromTab == "focus") 0 else 1
-                            val toIdx = if (animateToTab == "focus") 0 else 1
-                            views.setDisplayedChild(R.id.widget_tab_flipper, fromIdx)
-                            views.setDisplayedChild(R.id.widget_tab_flipper, toIdx)
-                        } else {
-                            views.setDisplayedChild(R.id.widget_tab_flipper, if (isFocus) 0 else 1)
-                        }
-                    } else {
-                        // Stable layout: plain visibility — checking todos never slides
-                        views.setViewVisibility(
-                            R.id.widget_checklist_focus,
-                            if (isFocus) View.VISIBLE else View.GONE
-                        )
-                        views.setViewVisibility(
-                            R.id.widget_checklist_notes,
-                            if (isFocus) View.GONE else View.VISIBLE
-                        )
-                    }
-
                     refreshListData(appWidgetManager, appWidgetId, vaultManager)
                 } else {
-                    if (isSlideLayout) {
-                        views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
-                    }
                     views.setViewVisibility(R.id.widget_checklist_focus, View.GONE)
                     views.setViewVisibility(R.id.widget_checklist_notes, View.GONE)
                     views.setViewVisibility(R.id.widget_checklist, View.VISIBLE)
@@ -332,9 +318,6 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(R.id.widget_checklist, View.GONE)
                 views.setViewVisibility(R.id.widget_checklist_focus, View.GONE)
                 views.setViewVisibility(R.id.widget_checklist_notes, View.GONE)
-                if (isSlideLayout) {
-                    views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
-                }
                 views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
                 val noteContent = vaultManager.getDisplayContent()
                 val preview = noteContent?.take(500) ?: context.getString(R.string.no_daily_note)
@@ -344,9 +327,6 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_checklist, View.GONE)
             views.setViewVisibility(R.id.widget_checklist_focus, View.GONE)
             views.setViewVisibility(R.id.widget_checklist_notes, View.GONE)
-            if (isSlideLayout) {
-                views.setViewVisibility(R.id.widget_tab_flipper, View.GONE)
-            }
             views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
             views.setTextViewText(
                 R.id.widget_note_preview,

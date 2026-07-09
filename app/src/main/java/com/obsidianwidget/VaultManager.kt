@@ -825,13 +825,36 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     /**
      * Reads the current widget note, applies smartCapture(), and writes the result back.
-     * Returns true on success. Called by QuickCaptureActivity when smartCaptureEnabled is on.
+     * Creates today's daily note if it does not exist yet.
      */
     fun writeSmartCapture(input: String): Boolean {
-        val noteUri = getWidgetNoteUri() ?: return false
-        val content = readFileContent(noteUri) ?: return false
+        val noteUri = getOrCreateWidgetNoteUri() ?: return false
+        val content = readFileContent(noteUri) ?: ""
         val newContent = smartCapture(content, input)
         return writeFileContent(noteUri, newContent)
+    }
+
+    /**
+     * URI of the widget note, creating today's daily note file when needed.
+     */
+    fun getOrCreateWidgetNoteUri(): Uri? {
+        getWidgetNoteUri()?.let { return it }
+        if (noteMode != NoteMode.DAILY) return null
+
+        val uri = vaultUri ?: return null
+        val rootDoc = DocumentFile.fromTreeUri(context, uri) ?: return null
+        val todayFileName = getTodayFileName()
+        val targetDir = if (dailyFolder.isNotBlank()) {
+            findOrCreateSubDirectory(rootDoc, dailyFolder)
+        } else {
+            rootDoc
+        } ?: return null
+
+        val existing = targetDir.findFile(todayFileName)
+        if (existing != null) return existing.uri
+        val created = targetDir.createFile("text/markdown", todayFileName) ?: return null
+        writeFileContent(created.uri, "")
+        return created.uri
     }
 
     /**
