@@ -610,8 +610,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val tab = forceTab ?: activeTab
         val filterBySection = smartTabsEnabled || forceTab != null
         val (sectionStart, sectionEnd) = if (filterBySection && smartTabsEnabled) {
-            val heading = if (tab == "focus") taskHeading else notesHeading
-            getSectionBounds(lines, heading)
+            getSectionBoundsForTab(lines, tab)
         } else Pair(-1, Int.MAX_VALUE)
 
         // When startAfterFirstHeading is on we collect items but defer emitting
@@ -678,10 +677,13 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
         val afterFm = lines.drop(fmEndLine + 1)
 
-        // Smart tabs: return only the active section
+        // Smart tabs: return only the active section (resolves renamed/aliased headings)
         if (smartTabsEnabled) {
-            val heading = if (activeTab == "focus") taskHeading else notesHeading
-            return getSection(afterFm.joinToString("\n"), heading)
+            val body = afterFm.joinToString("\n")
+            val bodyLines = body.lines()
+            val (start, end) = getSectionBoundsForTab(bodyLines, activeTab)
+            if (start > end || start >= bodyLines.size) return ""
+            return bodyLines.subList(start, minOf(end + 1, bodyLines.size)).joinToString("\n").trim()
         }
 
         if (!startAfterFirstHeading) {
@@ -699,20 +701,37 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     // ── Smart Daily helpers ─────────────────────────────────────────────────────
 
+    /** Common aliases so renaming the config heading doesn't blank existing vault sections. */
+    private fun headingCandidates(preferred: String, tab: String): List<String> {
+        val primary = preferred.trim()
+        val aliases = when (tab.lowercase()) {
+            "focus" -> listOf(
+                primary, "Fokus", "Focus", "Tasks", "Task", "TODO", "Todo", "To-Do", "To Do", "Aufgaben"
+            )
+            "notes" -> listOf(
+                primary, "Notes", "Notizen", "Note", "Log", "Journal", "Daily", "Notiz"
+            )
+            else -> listOf(primary)
+        }
+        // Distinct case-insensitively, preferred first
+        val seen = linkedSetOf<String>()
+        val out = mutableListOf<String>()
+        for (a in aliases) {
+            val t = a.trim()
+            if (t.isEmpty()) continue
+            val key = t.lowercase()
+            if (seen.add(key)) out.add(t)
+        }
+        return out
+    }
+
     /**
-     * Returns the (startLine, endLine) bounds (inclusive) of the content
-     * under [heading] within [lines].
-     * startLine points to the line AFTER the heading marker;
-     * endLine points to the last line before the next heading or EOF.
-     *
-     * If the heading is missing, returns (MAX, -1) so the filter excludes
-     * every line (empty section) rather than showing the whole note.
+     * Exact bounds for one heading name. Missing → (MAX, -1) empty filter.
      */
     fun getSectionBounds(lines: List<String>, heading: String): Pair<Int, Int> {
         val name = heading.trim()
         if (name.isEmpty()) return Pair(Int.MAX_VALUE, -1)
 
-        // Match # … ###### heading (not only ##)
         val headingPattern = Regex(
             """^#{1,6}\s+${Regex.escape(name)}\s*$""",
             RegexOption.IGNORE_CASE
@@ -727,11 +746,26 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             }
         }
         return if (start == -1) {
-            // Empty section — do not fall back to whole-file content
             Pair(Int.MAX_VALUE, -1)
         } else {
             Pair(start, lines.lastIndex)
         }
+    }
+
+    /**
+     * Section bounds for a smart tab. Tries configured name + aliases (Notizen/Notes,
+     * Fokus/Focus, …). If nothing matches, falls back to the whole note so the
+     * widget never goes blank after a heading rename in settings.
+     */
+    fun getSectionBoundsForTab(lines: List<String>, tab: String): Pair<Int, Int> {
+        val preferred = if (tab.equals("focus", ignoreCase = true)) taskHeading else notesHeading
+        for (name in headingCandidates(preferred, tab)) {
+            val bounds = getSectionBounds(lines, name)
+            if (bounds.first != Int.MAX_VALUE) return bounds
+        }
+        // Last resort: show full note content rather than an empty widget
+        if (lines.isEmpty()) return Pair(Int.MAX_VALUE, -1)
+        return Pair(0, lines.lastIndex)
     }
 
     /** Index of the heading line for [heading], or -1 if missing. */
@@ -746,19 +780,34 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     /**
+     * Find an existing section heading for a tab (configured name or alias).
+     * Returns the line index in [lines], or -1.
+     */
+    fun findHeadingLineIndexForTab(lines: List<String>, tab: String): Int {
+        val preferred = if (tab.equals("focus", ignoreCase = true)) taskHeading else notesHeading
+        for (name in headingCandidates(preferred, tab)) {
+            val idx = findHeadingLineIndex(lines, name)
+            if (idx >= 0) return idx
+        }
+        return -1
+    }
+
+    /**
      * Extracts the text content under [heading] as a trimmed string.
      * Used for the plain-text preview path.
      */
     fun getSection(content: String, heading: String): String {
         val lines = content.lines()
         val (start, end) = getSectionBounds(lines, heading)
-        if (start == -1) return ""
+        if (start > end || start >= lines.size) return ""
         return lines.subList(start, minOf(end + 1, lines.size)).joinToString("\n").trim()
     }
 
     /**
      * Inserts [line] under [heading] in [content].
      *
+     * @param tab When "focus"/"notes", also matches alias headings already in the vault
+     *            (e.g. inserts under existing `## Notizen` even if config says `Notes`).
      * @param atTop true  → insert directly under the heading (newest first; used for Notes)
      *              false → append at the bottom of the section (used for Focus tasks)
      * If the heading is missing and [createIfMissing] is true, appends `## heading` at EOF.
@@ -768,13 +817,22 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         heading: String,
         line: String,
         createIfMissing: Boolean = createMissingHeading,
-        atTop: Boolean = true
+        atTop: Boolean = true,
+        tab: String? = null
     ): String {
         val name = heading.trim().ifBlank { return content }
         val lines = content.lines().toMutableList()
         val nextHeadingPattern = Regex("""^#{1,6}\s+.+""")
 
-        var headingIdx = findHeadingLineIndex(lines, name)
+        // Prefer existing vault heading (including aliases) so renames don't orphan content
+        var headingIdx = if (tab != null) {
+            findHeadingLineIndexForTab(lines, tab)
+        } else {
+            findHeadingLineIndex(lines, name)
+        }
+        if (headingIdx < 0) {
+            headingIdx = findHeadingLineIndex(lines, name)
+        }
 
         if (headingIdx == -1) {
             return if (createIfMissing) {
@@ -841,7 +899,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 insertUnderHeading(
                     content, taskHeading, "- [ ] $clean",
                     createIfMissing = true,
-                    atTop = false
+                    atTop = false,
+                    tab = "focus"
                 )
             }
             "notes" -> {
@@ -850,7 +909,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 insertUnderHeading(
                     content, notesHeading, "- **$time** $text",
                     createIfMissing = true,
-                    atTop = true
+                    atTop = true,
+                    tab = "notes"
                 )
             }
             else -> content
