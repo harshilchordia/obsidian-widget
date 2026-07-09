@@ -219,16 +219,29 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
     }
 
     private fun applyTodoCount(views: RemoteViews, vaultManager: VaultManager) {
-        val items = vaultManager.parseChecklist()
-        val hasChecklist = items.any { !it.isPlainText }
-        if (vaultManager.showTodoCount && hasChecklist) {
-            val unchecked = items.count { !it.isPlainText && !it.isChecked }
-            val total = items.count { !it.isPlainText }
-            views.setTextViewText(R.id.widget_todo_count, "$unchecked of $total remaining")
-            views.setViewVisibility(R.id.widget_todo_count, View.VISIBLE)
-        } else {
+        if (!vaultManager.showTodoCount) {
             views.setViewVisibility(R.id.widget_todo_count, View.GONE)
+            return
         }
+        // Always count Focus/tasks when smart tabs are on (not the active tab's notes)
+        val items = if (vaultManager.smartTabsEnabled) {
+            vaultManager.parseChecklist("focus")
+        } else {
+            vaultManager.parseChecklist()
+        }
+        val total = items.count { !it.isPlainText }
+        if (total <= 0) {
+            views.setViewVisibility(R.id.widget_todo_count, View.GONE)
+            return
+        }
+        val completed = items.count { !it.isPlainText && it.isChecked }
+        val label = if (total == 1) {
+            "$completed of $total to-do completed"
+        } else {
+            "$completed of $total to-do's completed"
+        }
+        views.setTextViewText(R.id.widget_todo_count, label)
+        views.setViewVisibility(R.id.widget_todo_count, View.VISIBLE)
     }
 
     /**

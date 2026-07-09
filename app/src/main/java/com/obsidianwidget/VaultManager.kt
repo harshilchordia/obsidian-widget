@@ -846,8 +846,9 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             }
             "notes" -> {
                 val time = currentTimeHHmm()
+                // Bold time so the widget Markdown renderer shows **16:29**
                 insertUnderHeading(
-                    content, notesHeading, "- $time $text",
+                    content, notesHeading, "- **$time** $text",
                     createIfMissing = true,
                     atTop = true
                 )
