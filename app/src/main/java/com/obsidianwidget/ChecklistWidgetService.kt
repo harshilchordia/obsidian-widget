@@ -113,6 +113,7 @@ class ChecklistRemoteViewsFactory(
         }
 
         if (item.isPlainText) {
+            // Notes / bullets — same edit & delete actions as tasks
             val views = RemoteViews(context.packageName, R.layout.widget_text_item)
             val displayText = if (item.isBullet) "•  ${item.text}" else item.text
             views.setTextViewText(R.id.text_item_content, markdownToHtml(displayText))
@@ -121,19 +122,38 @@ class ChecklistRemoteViewsFactory(
             val indentPx = (item.indentLevel * 16 * density).toInt()
             views.setViewPadding(
                 R.id.text_item_root,
-                indentPx + (4 * density).toInt(),
-                (4 * density).toInt(),
-                (4 * density).toInt(),
-                (4 * density).toInt()
+                indentPx + (2 * density).toInt(),
+                (5 * density).toInt(),
+                0,
+                (5 * density).toInt()
             )
+
+            views.setInt(R.id.text_btn_edit, "setColorFilter", themeColors.textSecondary)
+            views.setInt(R.id.text_btn_delete, "setColorFilter", 0xFFB07070.toInt())
+
+            val editIntent = Intent().apply {
+                putExtra(ObsidianWidgetProvider.EXTRA_WIDGET_ID, widgetId)
+                putExtra(ObsidianWidgetProvider.EXTRA_LINE_INDEX, item.lineIndex)
+                putExtra(ObsidianWidgetProvider.EXTRA_TASK_ACTION, ObsidianWidgetProvider.TASK_EDIT)
+            }
+            val deleteIntent = Intent().apply {
+                putExtra(ObsidianWidgetProvider.EXTRA_WIDGET_ID, widgetId)
+                putExtra(ObsidianWidgetProvider.EXTRA_LINE_INDEX, item.lineIndex)
+                putExtra(ObsidianWidgetProvider.EXTRA_TASK_ACTION, ObsidianWidgetProvider.TASK_DELETE)
+            }
+            views.setOnClickFillInIntent(R.id.text_btn_edit, editIntent)
+            views.setOnClickFillInIntent(R.id.text_btn_delete, deleteIntent)
+
+            // Body tap: open link if present, otherwise no-op (edit via pencil)
             val url = extractFirstUrl(item.text)
             if (url != null) {
-                views.setOnClickFillInIntent(R.id.text_item_root, Intent().apply {
+                views.setOnClickFillInIntent(R.id.text_item_content, Intent().apply {
                     putExtra(ObsidianWidgetProvider.EXTRA_URL, url)
                 })
             } else {
-                views.setOnClickFillInIntent(R.id.text_item_root, Intent())
+                views.setOnClickFillInIntent(R.id.text_item_content, Intent())
             }
+            views.setOnClickFillInIntent(R.id.text_item_root, Intent())
             return views
         }
 

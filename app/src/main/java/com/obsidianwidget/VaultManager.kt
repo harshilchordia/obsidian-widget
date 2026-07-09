@@ -1010,14 +1010,23 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         return writeFileContent(noteUri, lines.joinToString("\n"))
     }
 
+    enum class LineKind { CHECKLIST, BULLET, PLAIN, HEADING }
+
+    data class EditableLine(
+        val kind: LineKind,
+        /** Text shown in the editor (no list markers / no checkbox). */
+        val text: String
+    )
+
     /** Delete the entire line at [lineIndex] from the widget note. */
-    fun deleteChecklistItem(lineIndex: Int): Boolean {
+    fun deleteChecklistItem(lineIndex: Int): Boolean = deleteLine(lineIndex)
+
+    fun deleteLine(lineIndex: Int): Boolean {
         val noteUri = getWidgetNoteUri() ?: return false
         val content = readFileContent(noteUri) ?: return false
         val lines = content.lines().toMutableList()
         if (lineIndex < 0 || lineIndex >= lines.size) return false
         lines.removeAt(lineIndex)
-        // Avoid leaving triple blank lines after deletion
         val cleaned = lines.joinToString("\n").replace(Regex("\n{3,}"), "\n\n")
         return writeFileContent(noteUri, cleaned)
     }
@@ -1026,9 +1035,16 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
      * Replace the task text of a checklist line (preserves check state + completion stamp rules).
      * If [newText] is blank, deletes the line instead.
      */
-    fun updateChecklistItemText(lineIndex: Int, newText: String): Boolean {
+    fun updateChecklistItemText(lineIndex: Int, newText: String): Boolean =
+        updateLineContent(lineIndex, newText)
+
+    /**
+     * Update any editable line (checklist, bullet note, or plain text).
+     * Preserves list/checkbox syntax and completion stamps where applicable.
+     */
+    fun updateLineContent(lineIndex: Int, newText: String): Boolean {
         val cleaned = newText.trim()
-        if (cleaned.isEmpty()) return deleteChecklistItem(lineIndex)
+        if (cleaned.isEmpty()) return deleteLine(lineIndex)
 
         val noteUri = getWidgetNoteUri() ?: return false
         val content = readFileContent(noteUri) ?: return false
@@ -1036,31 +1052,73 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         if (lineIndex < 0 || lineIndex >= lines.size) return false
 
         val line = lines[lineIndex]
-        val match = CHECKLIST_REGEX.matchEntire(line) ?: return false
-        val indent = match.groupValues[1]
-        val state = match.groupValues[2]
-        val wasChecked = state.lowercase() == "x"
-        val prevRaw = match.groupValues[3].trim()
-        val prevStamp = COMPLETION_SUFFIX.find(prevRaw)?.groupValues?.get(1)
-
-        val body = stripCompletionMarker(cleaned)
-        lines[lineIndex] = if (wasChecked) {
-            val stamp = prevStamp ?: currentTimeHHmm()
-            "$indent- [x] $body ✅ $stamp"
-        } else {
-            "$indent- [ ] $body"
+        val checkMatch = CHECKLIST_REGEX.matchEntire(line)
+        if (checkMatch != null) {
+            val indent = checkMatch.groupValues[1]
+            val state = checkMatch.groupValues[2]
+            val wasChecked = state.lowercase() == "x"
+            val prevRaw = checkMatch.groupValues[3].trim()
+            val prevStamp = COMPLETION_SUFFIX.find(prevRaw)?.groupValues?.get(1)
+            val body = stripCompletionMarker(cleaned)
+            lines[lineIndex] = if (wasChecked) {
+                val stamp = prevStamp ?: currentTimeHHmm()
+                "$indent- [x] $body ✅ $stamp"
+            } else {
+                "$indent- [ ] $body"
+            }
+            return writeFileContent(noteUri, lines.joinToString("\n"))
         }
+
+        val bulletMatch = BULLET_REGEX.matchEntire(line)
+        if (bulletMatch != null) {
+            val indent = bulletMatch.groupValues[1]
+            // Prefer original bullet marker (- * +)
+            val bulletChar = when {
+                line.trimStart().startsWith("*") -> "*"
+                line.trimStart().startsWith("+") -> "+"
+                else -> "-"
+            }
+            lines[lineIndex] = "$indent$bulletChar $cleaned"
+            return writeFileContent(noteUri, lines.joinToString("\n"))
+        }
+
+        // Plain line — keep leading indentation if any
+        val leading = Regex("""^\s*""").find(line)?.value ?: ""
+        lines[lineIndex] = "$leading$cleaned"
         return writeFileContent(noteUri, lines.joinToString("\n"))
     }
 
     /** Read raw checklist task text (without checkbox syntax) for editing. */
-    fun getChecklistItemText(lineIndex: Int): String? {
+    fun getChecklistItemText(lineIndex: Int): String? =
+        getEditableLine(lineIndex)?.text
+
+    /**
+     * Load editable content for a note line (tasks, bullets, or plain text).
+     * Headings are not editable through this path.
+     */
+    fun getEditableLine(lineIndex: Int): EditableLine? {
         val noteUri = getWidgetNoteUri() ?: return null
         val content = readFileContent(noteUri) ?: return null
         val lines = content.lines()
         if (lineIndex < 0 || lineIndex >= lines.size) return null
-        val match = CHECKLIST_REGEX.matchEntire(lines[lineIndex]) ?: return null
-        return stripCompletionMarker(match.groupValues[3].trim())
+        val line = lines[lineIndex]
+
+        val checkMatch = CHECKLIST_REGEX.matchEntire(line)
+        if (checkMatch != null) {
+            return EditableLine(
+                LineKind.CHECKLIST,
+                stripCompletionMarker(checkMatch.groupValues[3].trim())
+            )
+        }
+        if (HEADING_REGEX.matchEntire(line) != null) {
+            return EditableLine(LineKind.HEADING, HEADING_REGEX.matchEntire(line)!!.groupValues[2].trim())
+        }
+        val bulletMatch = BULLET_REGEX.matchEntire(line)
+        if (bulletMatch != null) {
+            return EditableLine(LineKind.BULLET, bulletMatch.groupValues[2].trim())
+        }
+        if (line.isBlank()) return null
+        return EditableLine(LineKind.PLAIN, line.trim())
     }
 
     /**

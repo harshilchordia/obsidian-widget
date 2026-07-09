@@ -17,7 +17,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.widget.doAfterTextChanged
 
 /**
- * Edit or delete a single checklist task from the home-screen widget.
+ * Edit or delete a task or note line from the home-screen widget.
  */
 class TaskEditActivity : AppCompatActivity() {
 
@@ -45,22 +45,33 @@ class TaskEditActivity : AppCompatActivity() {
         }
 
         val vaultManager = VaultManager(this, widgetId)
-        val existing = vaultManager.getChecklistItemText(lineIndex)
-        if (existing == null) {
-            Toast.makeText(this, "Task not found", Toast.LENGTH_SHORT).show()
+        val editable = vaultManager.getEditableLine(lineIndex)
+        if (editable == null || editable.kind == VaultManager.LineKind.HEADING) {
+            Toast.makeText(this, "Item not found", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
+
+        val isNote = editable.kind == VaultManager.LineKind.BULLET ||
+            editable.kind == VaultManager.LineKind.PLAIN
+        val noun = if (isNote) "note" else "task"
 
         val input = findViewById<EditText>(R.id.task_edit_input)
         val saveBtn = findViewById<Button>(R.id.task_edit_save)
         val cancelBtn = findViewById<Button>(R.id.task_edit_cancel)
         val deleteBtn = findViewById<Button>(R.id.task_edit_delete)
         val title = findViewById<TextView>(R.id.task_edit_title)
+        val subtitle = findViewById<TextView>(R.id.task_edit_subtitle)
 
-        title.text = "Edit task"
-        input.setText(existing)
-        input.setSelection(existing.length)
+        title.text = if (isNote) "Edit note" else "Edit task"
+        subtitle.text = if (isNote) {
+            "Update the note or remove it from your daily log"
+        } else {
+            "Update the task text or remove it"
+        }
+        input.hint = if (isNote) "Note…" else "Task…"
+        input.setText(editable.text)
+        input.setSelection(editable.text.length)
         input.inputType = InputType.TYPE_CLASS_TEXT or
             InputType.TYPE_TEXT_FLAG_MULTI_LINE or
             InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
@@ -71,7 +82,8 @@ class TaskEditActivity : AppCompatActivity() {
 
         applyAccent(vaultManager, saveBtn, cancelBtn, deleteBtn)
 
-        saveBtn.isEnabled = existing.isNotBlank()
+        saveBtn.isEnabled = editable.text.isNotBlank()
+        saveBtn.alpha = if (saveBtn.isEnabled) 1f else 0.45f
         input.doAfterTextChanged {
             saveBtn.isEnabled = !it.isNullOrBlank()
             saveBtn.alpha = if (saveBtn.isEnabled) 1f else 0.45f
@@ -82,12 +94,16 @@ class TaskEditActivity : AppCompatActivity() {
         saveBtn.setOnClickListener {
             val text = input.text.toString().trim()
             if (text.isEmpty()) {
-                confirmDelete(vaultManager, widgetId, lineIndex)
+                confirmDelete(vaultManager, widgetId, lineIndex, noun)
                 return@setOnClickListener
             }
-            val ok = vaultManager.updateChecklistItemText(lineIndex, text)
+            val ok = vaultManager.updateLineContent(lineIndex, text)
             if (ok) {
-                Toast.makeText(this, "Task updated", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    if (isNote) "Note updated" else "Task updated",
+                    Toast.LENGTH_SHORT
+                ).show()
                 ObsidianWidgetProvider.refreshWidget(this, widgetId)
             } else {
                 Toast.makeText(this, R.string.error_saving, Toast.LENGTH_SHORT).show()
@@ -96,7 +112,7 @@ class TaskEditActivity : AppCompatActivity() {
         }
 
         deleteBtn.setOnClickListener {
-            confirmDelete(vaultManager, widgetId, lineIndex)
+            confirmDelete(vaultManager, widgetId, lineIndex, noun)
         }
 
         input.post {
@@ -106,14 +122,23 @@ class TaskEditActivity : AppCompatActivity() {
         }
     }
 
-    private fun confirmDelete(vaultManager: VaultManager, widgetId: Int, lineIndex: Int) {
+    private fun confirmDelete(
+        vaultManager: VaultManager,
+        widgetId: Int,
+        lineIndex: Int,
+        noun: String
+    ) {
         AlertDialog.Builder(this)
-            .setTitle("Delete task?")
-            .setMessage("This removes the task from your note permanently.")
+            .setTitle("Delete $noun?")
+            .setMessage("This removes the $noun from your note permanently.")
             .setPositiveButton("Delete") { _, _ ->
-                val ok = vaultManager.deleteChecklistItem(lineIndex)
+                val ok = vaultManager.deleteLine(lineIndex)
                 if (ok) {
-                    Toast.makeText(this, "Task deleted", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        if (noun == "note") "Note deleted" else "Task deleted",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     ObsidianWidgetProvider.refreshWidget(this, widgetId)
                 } else {
                     Toast.makeText(this, R.string.error_saving, Toast.LENGTH_SHORT).show()
