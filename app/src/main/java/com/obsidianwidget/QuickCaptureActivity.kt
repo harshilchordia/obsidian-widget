@@ -84,9 +84,9 @@ class QuickCaptureActivity : AppCompatActivity() {
                 captureSubtitle.visibility = View.VISIBLE
                 captureSubtitle.text = "Saves under ## $heading"
                 captureInput.hint = if (targetTab == "focus") {
-                    "What needs doing?"
+                    "One task per line…\nBuy eggs\nDrink water"
                 } else {
-                    "What's on your mind?"
+                    "What's on your mind? (one note per line)"
                 }
             } else {
                 captureTitle.text = "Add to note"

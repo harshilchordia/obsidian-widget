@@ -493,10 +493,23 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     /**
-     * Append text to today's daily note (creates the file if it doesn't exist).
+     * Append text to the widget note. Multi-line input with a checklist note
+     * creates one `- [ ]` task per non-empty line.
      */
     fun appendToWidgetNote(text: String): Boolean {
-        val formatted = if (parseChecklist().any { !it.isPlainText }) "- [ ] $text" else text
+        val hasChecklist = parseChecklist().any { !it.isPlainText }
+        val formatted = if (hasChecklist) {
+            text.lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .joinToString("\n") { line ->
+                    val clean = line.replace(Regex("""^-\s*(\[[ xX]\])?\s*"""), "").trim()
+                    if (clean.isEmpty()) line else "- [ ] $clean"
+                }
+        } else {
+            text
+        }
+        if (formatted.isBlank()) return false
         return when (noteMode) {
             NoteMode.DAILY -> appendToDailyNote(formatted)
             NoteMode.PINNED -> appendToPinnedNote(formatted)
@@ -909,35 +922,51 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     /**
-     * Tab-aware smart capture:
-     * - "focus" → "- [ ] task" under taskHeading (bottom of section)
-     * - "notes" → "- HH:mm text" under notesHeading (top of section)
-     *
-     * Always creates the heading if missing so notes never silently no-op.
+     * Tab-aware smart capture. Multi-line input creates one item per non-empty line.
+     * - "focus" → each line becomes `- [ ] task` under taskHeading (bottom, input order)
+     * - "notes" → each line becomes `- **HH:mm** text` under notesHeading (top, input order)
      */
     fun smartCapture(content: String, input: String, tab: String = activeTab): String {
-        val text = input.trim()
-        if (text.isEmpty()) return content
+        val itemLines = input.lines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (itemLines.isEmpty()) return content
+
         return when (tab.lowercase()) {
             "focus" -> {
-                val clean = text.replace(Regex("""^-\s*(\[[ xX]\])?\s*"""), "").trim()
-                if (clean.isEmpty()) return content
-                insertUnderHeading(
-                    content, taskHeading, "- [ ] $clean",
-                    createIfMissing = true,
-                    atTop = false,
-                    tab = "focus"
-                )
+                var result = content
+                // Append each task at the bottom so line 1 appears above line 2
+                for (raw in itemLines) {
+                    val clean = raw
+                        .replace(Regex("""^-\s*(\[[ xX]\])?\s*"""), "")
+                        .trim()
+                    if (clean.isEmpty()) continue
+                    result = insertUnderHeading(
+                        result, taskHeading, "- [ ] $clean",
+                        createIfMissing = true,
+                        atTop = false,
+                        tab = "focus"
+                    )
+                }
+                result
             }
             "notes" -> {
                 val time = currentTimeHHmm()
-                // Bold time so the widget Markdown renderer shows **16:29**
-                insertUnderHeading(
-                    content, notesHeading, "- **$time** $text",
-                    createIfMissing = true,
-                    atTop = true,
-                    tab = "notes"
-                )
+                var result = content
+                // Insert at top in reverse so first typed line stays on top
+                for (raw in itemLines.asReversed()) {
+                    val clean = raw
+                        .replace(Regex("""^[-*+]\s+"""), "")
+                        .trim()
+                    if (clean.isEmpty()) continue
+                    result = insertUnderHeading(
+                        result, notesHeading, "- **$time** $clean",
+                        createIfMissing = true,
+                        atTop = true,
+                        tab = "notes"
+                    )
+                }
+                result
             }
             else -> content
         }
