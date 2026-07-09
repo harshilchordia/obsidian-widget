@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <queries>
         <package android:name="md.obsidian" />
         <intent>
@@ -35,6 +37,13 @@
             android:excludeFromRecents="true" />
 
         <activity
+            android:name=".TaskEditActivity"
+            android:label="Edit Task"
+            android:exported="false"
+            android:theme="@style/Theme.ObsidianWidget.Dialog"
+            android:excludeFromRecents="true" />
+
+        <activity
             android:name=".WidgetConfigActivity"
             android:exported="true"
             android:taskAffinity=""
@@ -44,12 +53,23 @@
             </intent-filter>
         </activity>
 
+        <!-- Foreground trampoline so widget toggles can vibrate on picky OEMs -->
+        <activity
+            android:name=".HapticClickActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ObsidianWidget.Haptic"
+            android:finishOnTaskLaunch="true" />
+
         <receiver
             android:name=".ObsidianWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.obsidianwidget.ACTION_TOGGLE" />
+                <action android:name="com.obsidianwidget.ACTION_TASK" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

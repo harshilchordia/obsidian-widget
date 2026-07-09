@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/dialog_background"
+    android:orientation="vertical"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="20dp"
+    android:paddingBottom="16dp"
+    android:minWidth="320dp">
+
+    <TextView
+        android:id="@+id/task_edit_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Edit task"
+        android:textColor="@color/obsidian_text"
+        android:textSize="18sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <TextView
+        android:id="@+id/task_edit_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="14dp"
+        android:text="Update the task text or remove it"
+        android:textColor="@color/obsidian_text_secondary"
+        android:textSize="12sp" />
+
+    <EditText
+        android:id="@+id/task_edit_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="120dp"
+        android:maxHeight="240dp"
+        android:minLines="3"
+        android:maxLines="8"
+        android:background="@drawable/capture_input_background"
+        android:gravity="top|start"
+        android:hint="Task…"
+        android:inputType="textMultiLine|textCapSentences|textAutoCorrect"
+        android:padding="16dp"
+        android:textColor="@color/obsidian_text"
+        android:textColorHint="@color/obsidian_text_secondary"
+        android:textSize="15sp"
+        android:lineSpacingExtra="3dp"
+        android:layout_marginBottom="16dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <Button
+            android:id="@+id/task_edit_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:minHeight="0dp"
+            android:background="@drawable/button_outline"
+            android:backgroundTint="@null"
+            android:text="Delete"
+            android:textColor="#E57373"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/task_edit_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:minHeight="0dp"
+            android:background="@drawable/button_outline"
+            android:backgroundTint="@null"
+            android:text="@string/cancel"
+            android:textColor="@color/obsidian_text_secondary"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/task_edit_save"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:minHeight="0dp"
+            android:background="@drawable/button_background"
+            android:backgroundTint="@null"
+            android:text="Save"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp" />
+    </LinearLayout>
+</LinearLayout>

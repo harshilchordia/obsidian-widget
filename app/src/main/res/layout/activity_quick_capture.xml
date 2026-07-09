@@ -4,31 +4,59 @@
     android:layout_height="wrap_content"
     android:background="@drawable/dialog_background"
     android:orientation="vertical"
-    android:padding="14dp"
-    android:minWidth="300dp">
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="20dp"
+    android:paddingBottom="16dp"
+    android:minWidth="320dp">
 
     <TextView
         android:id="@+id/capture_title"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Quick Capture"
         android:textColor="@color/obsidian_text"
         android:textSize="18sp"
         android:fontFamily="sans-serif-medium"
-        android:layout_marginBottom="16dp" />
+        android:letterSpacing="0.01" />
 
+    <TextView
+        android:id="@+id/capture_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="14dp"
+        android:textColor="@color/obsidian_text_secondary"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif"
+        android:visibility="gone" />
+
+    <!-- Multiline field that grows with content -->
     <EditText
         android:id="@+id/capture_input"
         android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:background="@drawable/input_background"
+        android:layout_height="wrap_content"
+        android:minHeight="148dp"
+        android:maxHeight="280dp"
+        android:minLines="5"
+        android:maxLines="12"
+        android:background="@drawable/capture_input_background"
         android:gravity="top|start"
         android:hint="@string/capture_hint"
-        android:inputType="textMultiLine"
-        android:padding="14dp"
+        android:inputType="textMultiLine|textCapSentences|textAutoCorrect"
+        android:imeOptions="actionDone"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="14dp"
         android:textColor="@color/obsidian_text"
         android:textColorHint="@color/obsidian_text_secondary"
-        android:textSize="14sp"
+        android:textSize="15sp"
+        android:lineSpacingExtra="4dp"
+        android:scrollbars="vertical"
+        android:fadeScrollbars="true"
+        android:overScrollMode="ifContentScrolls"
+        android:importantForAutofill="no"
         android:layout_marginBottom="12dp" />
 
     <!-- Add to Top Toggle -->
@@ -38,7 +66,9 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="14dp"
+        android:paddingStart="2dp"
+        android:paddingEnd="2dp"
         android:visibility="gone">
 
         <TextView
@@ -61,35 +91,40 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="end">
+        android:gravity="end"
+        android:layout_marginTop="4dp">
 
         <Button
             android:id="@+id/btn_cancel"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="44dp"
             android:minHeight="0dp"
+            android:minWidth="88dp"
             android:background="@drawable/button_outline"
+            android:backgroundTint="@null"
             android:text="@string/cancel"
             android:textColor="@color/obsidian_text_secondary"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:textAllCaps="false"
             android:fontFamily="sans-serif-medium"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:layout_marginEnd="8dp" />
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:layout_marginEnd="10dp" />
 
         <Button
             android:id="@+id/btn_save"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="44dp"
             android:minHeight="0dp"
+            android:minWidth="96dp"
             android:background="@drawable/button_background"
+            android:backgroundTint="@null"
             android:text="@string/save"
             android:textColor="@color/white"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:textAllCaps="false"
             android:fontFamily="sans-serif-medium"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
+            android:paddingStart="22dp"
+            android:paddingEnd="22dp" />
     </LinearLayout>
 </LinearLayout>

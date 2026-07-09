@@ -19,16 +19,32 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
     data class ChecklistItem(
         val lineIndex: Int,
+        /** Display text without completion marker. */
         val text: String,
         val isChecked: Boolean,
         val isPlainText: Boolean = false,
         val isHeading: Boolean = false,
         val isBullet: Boolean = false,
-        val indentLevel: Int = 0
+        val indentLevel: Int = 0,
+        /** Grey meta label, e.g. "Completed 14:30". */
+        val completedLabel: String? = null
     )
 
     companion object {
         private const val PREFS_NAME = "obsidian_widget_prefs"
+        /** Appended when a task is checked: ` ✅ HH:mm` or ` ✅ yyyy-MM-dd HH:mm` */
+        private val COMPLETION_SUFFIX = Regex(
+            """\s*✅\s*((?:\d{4}-\d{2}-\d{2}\s+)?\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2})\s*$"""
+        )
+
+        fun stripCompletionMarker(text: String): String =
+            text.replace(COMPLETION_SUFFIX, "").trimEnd()
+
+        fun parseCompletionLabel(text: String): String? {
+            val m = COMPLETION_SUFFIX.find(text) ?: return null
+            val stamp = m.groupValues[1].trim()
+            return if (stamp.isNotEmpty()) "Completed $stamp" else "Completed"
+        }
         // Global keys (shared across all widgets)
         private const val KEY_VAULT_URI = "vault_uri"
         private const val KEY_VAULT_NAME = "vault_name"
@@ -50,7 +66,22 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_WIDGET_THEME = "widget_theme"
         private const val KEY_ACCENT_COLOR = "accent_color"
         private const val KEY_SHOW_TODO_COUNT = "show_todo_count"
+        private const val KEY_HIDE_FRONTMATTER = "hide_frontmatter"
+        private const val KEY_START_AFTER_HEADING = "start_after_heading"
+        // Smart Daily Tabs / Capture keys
+        private const val KEY_SMART_TABS = "smart_tabs"
+        private const val KEY_SMART_CAPTURE = "smart_capture"
+        private const val KEY_TASK_HEADING = "task_heading"
+        private const val KEY_NOTES_HEADING = "notes_heading"
+        private const val KEY_TIMESTAMP_FORMAT = "timestamp_format"
+        private const val KEY_CREATE_MISSING_HEADING = "create_missing_heading"
+        private const val KEY_ACTIVE_TAB = "active_tab"
+        private const val KEY_DEFAULT_TAB = "default_tab"
+        private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
+        private const val KEY_AUTO_SYNC = "auto_sync"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
+        private const val DEFAULT_TASK_HEADING = "Fokus"
+        private const val DEFAULT_NOTES_HEADING = "Notes"
 
         private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
         private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.+)$""")
@@ -76,7 +107,37 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 .remove("${KEY_WIDGET_THEME}_$widgetId")
                 .remove("${KEY_ACCENT_COLOR}_$widgetId")
                 .remove("${KEY_SHOW_TODO_COUNT}_$widgetId")
+                .remove("${KEY_HIDE_FRONTMATTER}_$widgetId")
+                .remove("${KEY_START_AFTER_HEADING}_$widgetId")
+                .remove("${KEY_SMART_TABS}_$widgetId")
+                .remove("${KEY_SMART_CAPTURE}_$widgetId")
+                .remove("${KEY_TASK_HEADING}_$widgetId")
+                .remove("${KEY_NOTES_HEADING}_$widgetId")
+                .remove("${KEY_TIMESTAMP_FORMAT}_$widgetId")
+                .remove("${KEY_CREATE_MISSING_HEADING}_$widgetId")
+                .remove("${KEY_ACTIVE_TAB}_$widgetId")
+                .remove("${KEY_DEFAULT_TAB}_$widgetId")
+                .remove("${KEY_HAPTIC_FEEDBACK}_$widgetId")
+                .remove("${KEY_AUTO_SYNC}_$widgetId")
                 .apply()
+        }
+
+        /**
+         * Returns the line index (inclusive) of the closing '---' of YAML frontmatter,
+         * or -1 if no frontmatter is present.
+         * Lines up to and including this index should be skipped during display parsing.
+         * We deliberately do NOT strip the content string so that raw lineIndex values
+         * stored in ChecklistItem still map directly to real file line numbers.
+         */
+        fun findFrontmatterEndLine(lines: List<String>): Int {
+            if (lines.isEmpty() || lines[0].trim() != "---") return -1
+            for (i in 1 until lines.size) {
+                if (lines[i].trim() == "---") return i
+                // A blank line before closing --- means no frontmatter (Obsidian rule)
+                // but we keep scanning — some templates have blank lines inside frontmatter
+            }
+            // Opening --- found but no closing --- — treat entire rest as frontmatter
+            return lines.size - 1
         }
     }
 
@@ -222,6 +283,81 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         get() = prefs.getBoolean(wk(KEY_SHOW_TODO_COUNT), false)
         set(value) = prefs.edit().putBoolean(wk(KEY_SHOW_TODO_COUNT), value).apply()
 
+    /**
+     * When enabled, YAML frontmatter (--- ... ---) is hidden in the widget.
+     * Defaults to true — most users want this.
+     */
+    var hideFrontmatter: Boolean
+        get() = prefs.getBoolean(wk(KEY_HIDE_FRONTMATTER), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_HIDE_FRONTMATTER), value).apply()
+
+    /**
+     * When enabled, content before (and including) the first heading is skipped.
+     * Useful for notes with a metadata/property section before the actual content.
+     */
+    var startAfterFirstHeading: Boolean
+        get() = prefs.getBoolean(wk(KEY_START_AFTER_HEADING), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_START_AFTER_HEADING), value).apply()
+
+    // ── Smart Daily Tabs ────────────────────────────────────────────────────────
+
+    /** Show Focus / Notes tab bar in widget. Off by default — safe for existing users. */
+    var smartTabsEnabled: Boolean
+        get() = prefs.getBoolean(wk(KEY_SMART_TABS), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_SMART_TABS), value).apply()
+
+    /** When on, capture input is routed to the correct heading instead of plain append. Off by default. */
+    var smartCaptureEnabled: Boolean
+        get() = prefs.getBoolean(wk(KEY_SMART_CAPTURE), false)
+        set(value) = prefs.edit().putBoolean(wk(KEY_SMART_CAPTURE), value).apply()
+
+    /** Heading name for the task/focus section. Default: "Fokus" */
+    var taskHeading: String
+        get() = prefs.getString(wk(KEY_TASK_HEADING), DEFAULT_TASK_HEADING) ?: DEFAULT_TASK_HEADING
+        set(value) = prefs.edit().putString(wk(KEY_TASK_HEADING), value).apply()
+
+    /** Heading name for the notes/log section. Default: "Notes" */
+    var notesHeading: String
+        get() = prefs.getString(wk(KEY_NOTES_HEADING), DEFAULT_NOTES_HEADING) ?: DEFAULT_NOTES_HEADING
+        set(value) = prefs.edit().putString(wk(KEY_NOTES_HEADING), value).apply()
+
+    /** Short haptic click when toggling a checklist item. Default: on. */
+    var hapticFeedback: Boolean
+        get() = prefs.getBoolean(wk(KEY_HAPTIC_FEEDBACK), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_HAPTIC_FEEDBACK), value).apply()
+
+    /**
+     * When enabled, widgets refresh on the system interval and on screen unlock.
+     * When disabled, a manual refresh button is shown on the widget header.
+     * Default: on.
+     */
+    var autoSync: Boolean
+        get() = prefs.getBoolean(wk(KEY_AUTO_SYNC), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_AUTO_SYNC), value).apply()
+
+    /** Time format for timestamped notes. Default: "HH:mm" */
+    var timestampFormat: String
+        get() = prefs.getString(wk(KEY_TIMESTAMP_FORMAT), "HH:mm") ?: "HH:mm"
+        set(value) = prefs.edit().putString(wk(KEY_TIMESTAMP_FORMAT), value).apply()
+
+    /** If the target heading is missing from the note, create it. Default: true */
+    var createMissingHeading: Boolean
+        get() = prefs.getBoolean(wk(KEY_CREATE_MISSING_HEADING), true)
+        set(value) = prefs.edit().putBoolean(wk(KEY_CREATE_MISSING_HEADING), value).apply()
+
+    /**
+     * Which tab is currently active: "focus" or "notes".
+     * Persisted per-widget so the last-used tab survives refresh.
+     */
+    var activeTab: String
+        get() = prefs.getString(wk(KEY_ACTIVE_TAB), prefs.getString(wk(KEY_DEFAULT_TAB), "focus") ?: "focus") ?: "focus"
+        set(value) { prefs.edit().putString(wk(KEY_ACTIVE_TAB), value).commit() }
+
+    /** Default tab when widget is first configured: "focus", "notes". Default: "focus" */
+    var defaultTab: String
+        get() = prefs.getString(wk(KEY_DEFAULT_TAB), "focus") ?: "focus"
+        set(value) = prefs.edit().putString(wk(KEY_DEFAULT_TAB), value).apply()
+
     fun getThemeColors(): ThemeColors {
         val isDark = widgetTheme == "dark"
         val accent = try { android.graphics.Color.parseColor(accentColor) } catch (_: Exception) { 0xFFD97757.toInt() }
@@ -267,7 +403,18 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         showAddToTop: Boolean,
         widgetTheme: String,
         accentColor: String,
-        showTodoCount: Boolean
+        showTodoCount: Boolean,
+        hideFrontmatter: Boolean,
+        startAfterFirstHeading: Boolean,
+        smartTabsEnabled: Boolean,
+        smartCaptureEnabled: Boolean,
+        taskHeading: String,
+        notesHeading: String,
+        timestampFormat: String,
+        createMissingHeading: Boolean,
+        defaultTab: String,
+        hapticFeedback: Boolean,
+        autoSync: Boolean
     ) {
         prefs.edit()
             .putString(wk(KEY_DAILY_FOLDER), dailyFolder)
@@ -282,6 +429,17 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
             .putString(wk(KEY_WIDGET_THEME), widgetTheme)
             .putString(wk(KEY_ACCENT_COLOR), accentColor)
             .putBoolean(wk(KEY_SHOW_TODO_COUNT), showTodoCount)
+            .putBoolean(wk(KEY_HIDE_FRONTMATTER), hideFrontmatter)
+            .putBoolean(wk(KEY_START_AFTER_HEADING), startAfterFirstHeading)
+            .putBoolean(wk(KEY_SMART_TABS), smartTabsEnabled)
+            .putBoolean(wk(KEY_SMART_CAPTURE), smartCaptureEnabled)
+            .putString(wk(KEY_TASK_HEADING), taskHeading.ifBlank { DEFAULT_TASK_HEADING })
+            .putString(wk(KEY_NOTES_HEADING), notesHeading.ifBlank { DEFAULT_NOTES_HEADING })
+            .putString(wk(KEY_TIMESTAMP_FORMAT), timestampFormat.ifBlank { "HH:mm" })
+            .putBoolean(wk(KEY_CREATE_MISSING_HEADING), createMissingHeading)
+            .putString(wk(KEY_DEFAULT_TAB), defaultTab)
+            .putBoolean(wk(KEY_HAPTIC_FEEDBACK), hapticFeedback)
+            .putBoolean(wk(KEY_AUTO_SYNC), autoSync)
             .commit()
     }
 
@@ -335,10 +493,23 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     /**
-     * Append text to today's daily note (creates the file if it doesn't exist).
+     * Append text to the widget note. Multi-line input with a checklist note
+     * creates one `- [ ]` task per non-empty line.
      */
     fun appendToWidgetNote(text: String): Boolean {
-        val formatted = if (parseChecklist().any { !it.isPlainText }) "- [ ] $text" else text
+        val hasChecklist = parseChecklist().any { !it.isPlainText }
+        val formatted = if (hasChecklist) {
+            text.lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .joinToString("\n") { line ->
+                    val clean = line.replace(Regex("""^-\s*(\[[ xX]\])?\s*"""), "").trim()
+                    if (clean.isEmpty()) line else "- [ ] $clean"
+                }
+        } else {
+            text
+        }
+        if (formatted.isBlank()) return false
         return when (noteMode) {
             NoteMode.DAILY -> appendToDailyNote(formatted)
             NoteMode.PINNED -> appendToPinnedNote(formatted)
@@ -421,37 +592,98 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     private fun writeFileContent(uri: Uri, content: String): Boolean {
-        return try {
-            context.contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
-                OutputStreamWriter(outputStream).use { writer ->
-                    writer.write(content)
+        // Try several SAF write modes — some providers reject "wt"
+        val modes = arrayOf("wt", "rwt", "w")
+        for (mode in modes) {
+            try {
+                val stream = context.contentResolver.openOutputStream(uri, mode) ?: continue
+                stream.use { outputStream ->
+                    OutputStreamWriter(outputStream, Charsets.UTF_8).use { writer ->
+                        writer.write(content)
+                        writer.flush()
+                    }
                 }
+                return true
+            } catch (_: Exception) {
+                // try next mode
             }
-            true
-        } catch (e: Exception) {
-            false
         }
+        return false
     }
 
     /**
      * Parse checklist items from the current widget note.
+     *
+     * Frontmatter handling: we skip lines up to and including the closing '---',
+     * but we preserve the original line indices so that toggleChecklistItem() can
+     * still locate the correct line in the raw file without any offset arithmetic.
+     *
+     * startAfterFirstHeading: when enabled, items before the first heading are
+     * also skipped, so only content after the first # heading is shown.
      */
-    fun parseChecklist(): List<ChecklistItem> {
+    /**
+     * @param forceTab When non-null ("focus" or "notes"), filter to that section
+     *                 even if it is not the active tab. Used by dual ListView factories.
+     */
+    fun parseChecklist(forceTab: String? = null): List<ChecklistItem> {
         val content = readWidgetNote() ?: return emptyList()
+        val lines = content.lines()
         val items = mutableListOf<ChecklistItem>()
-        content.lines().forEachIndexed { index, line ->
+
+        // Determine the last line index belonging to YAML frontmatter.
+        // -1 means no frontmatter present.
+        val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
+
+        // Smart tabs: find the bounds of the active (or forced) section so we only show
+        // that section's content. Indices preserved → toggles still work.
+        val tab = forceTab ?: activeTab
+        val filterBySection = smartTabsEnabled || forceTab != null
+        val (sectionStart, sectionEnd) = if (filterBySection && smartTabsEnabled) {
+            getSectionBoundsForTab(lines, tab)
+        } else Pair(-1, Int.MAX_VALUE)
+
+        // When startAfterFirstHeading is on we collect items but defer emitting
+        // until we see the first heading (the heading itself is also skipped).
+        // (Only applies when smart tabs is off — tabs already pin to one section)
+        val skipUntilHeading = startAfterFirstHeading && !smartTabsEnabled
+        var headingFound = false
+
+        lines.forEachIndexed { index, line ->
+            // Skip frontmatter lines entirely (indices preserved for toggle safety)
+            if (index <= fmEndLine) return@forEachIndexed
+            // Skip lines outside the active section when smart tabs is on
+            if (smartTabsEnabled && (index < sectionStart || index > sectionEnd)) return@forEachIndexed
+
             val match = CHECKLIST_REGEX.matchEntire(line)
             val headingMatch = HEADING_REGEX.matchEntire(line)
+
             if (match != null) {
+                if (skipUntilHeading && !headingFound) return@forEachIndexed
                 val indent = match.groupValues[1]
                 val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
                 val checked = match.groupValues[2].lowercase() == "x"
-                val text = match.groupValues[3].trim()
-                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked, indentLevel = indentLevel))
+                val rawText = match.groupValues[3].trim()
+                val completedLabel = if (checked) parseCompletionLabel(rawText) else null
+                val text = stripCompletionMarker(rawText)
+                items.add(
+                    ChecklistItem(
+                        lineIndex = index,
+                        text = text,
+                        isChecked = checked,
+                        indentLevel = indentLevel,
+                        completedLabel = completedLabel
+                    )
+                )
             } else if (headingMatch != null) {
+                if (skipUntilHeading && !headingFound) {
+                    // Mark that we've passed the first heading; skip the heading line itself
+                    headingFound = true
+                    return@forEachIndexed
+                }
                 val text = headingMatch.groupValues[2].trim()
                 items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isHeading = true))
             } else {
+                if (skipUntilHeading && !headingFound) return@forEachIndexed
                 val bulletMatch = BULLET_REGEX.matchEntire(line)
                 if (bulletMatch != null) {
                     val indent = bulletMatch.groupValues[1]
@@ -463,6 +695,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 }
             }
         }
+
         if (sortUnchecked) {
             val nonChecklist = items.filter { it.isPlainText }
             val unchecked = items.filter { !it.isPlainText && !it.isChecked }
@@ -473,7 +706,312 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
     }
 
     /**
+     * Returns the note content with frontmatter and/or pre-heading content stripped,
+     * for use in the plain-text preview path (non-checklist notes).
+     */
+    fun getDisplayContent(): String? {
+        val content = readWidgetNote() ?: return null
+        val lines = content.lines()
+
+        val fmEndLine = if (hideFrontmatter) findFrontmatterEndLine(lines) else -1
+        val afterFm = lines.drop(fmEndLine + 1)
+
+        // Smart tabs: return only the active section (resolves renamed/aliased headings)
+        if (smartTabsEnabled) {
+            val body = afterFm.joinToString("\n")
+            val bodyLines = body.lines()
+            val (start, end) = getSectionBoundsForTab(bodyLines, activeTab)
+            if (start > end || start >= bodyLines.size) return ""
+            return bodyLines.subList(start, minOf(end + 1, bodyLines.size)).joinToString("\n").trim()
+        }
+
+        if (!startAfterFirstHeading) {
+            return afterFm.joinToString("\n").trimStart()
+        }
+
+        // Skip everything up to and including the first heading
+        val headingIdx = afterFm.indexOfFirst { HEADING_REGEX.matchEntire(it) != null }
+        return if (headingIdx == -1) {
+            afterFm.joinToString("\n").trimStart()
+        } else {
+            afterFm.drop(headingIdx + 1).joinToString("\n").trimStart()
+        }
+    }
+
+    // ── Smart Daily helpers ─────────────────────────────────────────────────────
+
+    /** Common aliases so renaming the config heading doesn't blank existing vault sections. */
+    private fun headingCandidates(preferred: String, tab: String): List<String> {
+        val primary = preferred.trim()
+        val aliases = when (tab.lowercase()) {
+            "focus" -> listOf(
+                primary, "Fokus", "Focus", "Tasks", "Task", "TODO", "Todo", "To-Do", "To Do", "Aufgaben"
+            )
+            "notes" -> listOf(
+                primary, "Notes", "Notizen", "Note", "Log", "Journal", "Daily", "Notiz"
+            )
+            else -> listOf(primary)
+        }
+        // Distinct case-insensitively, preferred first
+        val seen = linkedSetOf<String>()
+        val out = mutableListOf<String>()
+        for (a in aliases) {
+            val t = a.trim()
+            if (t.isEmpty()) continue
+            val key = t.lowercase()
+            if (seen.add(key)) out.add(t)
+        }
+        return out
+    }
+
+    /**
+     * Exact bounds for one heading name. Missing → (MAX, -1) empty filter.
+     */
+    fun getSectionBounds(lines: List<String>, heading: String): Pair<Int, Int> {
+        val name = heading.trim()
+        if (name.isEmpty()) return Pair(Int.MAX_VALUE, -1)
+
+        val headingPattern = Regex(
+            """^#{1,6}\s+${Regex.escape(name)}\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+        val nextHeadingPattern = Regex("""^#{1,6}\s+.+""")
+        var start = -1
+        for (i in lines.indices) {
+            if (start == -1) {
+                if (headingPattern.matches(lines[i].trimEnd())) start = i + 1
+            } else {
+                if (nextHeadingPattern.matches(lines[i].trimEnd())) return Pair(start, i - 1)
+            }
+        }
+        return if (start == -1) {
+            Pair(Int.MAX_VALUE, -1)
+        } else {
+            Pair(start, lines.lastIndex)
+        }
+    }
+
+    /**
+     * Section bounds for a smart tab. Tries configured name + aliases (Notizen/Notes,
+     * Fokus/Focus, …). If nothing matches, falls back to the whole note so the
+     * widget never goes blank after a heading rename in settings.
+     */
+    fun getSectionBoundsForTab(lines: List<String>, tab: String): Pair<Int, Int> {
+        val preferred = if (tab.equals("focus", ignoreCase = true)) taskHeading else notesHeading
+        for (name in headingCandidates(preferred, tab)) {
+            val bounds = getSectionBounds(lines, name)
+            if (bounds.first != Int.MAX_VALUE) return bounds
+        }
+        // Last resort: show full note content rather than an empty widget
+        if (lines.isEmpty()) return Pair(Int.MAX_VALUE, -1)
+        return Pair(0, lines.lastIndex)
+    }
+
+    /** Index of the heading line for [heading], or -1 if missing. */
+    fun findHeadingLineIndex(lines: List<String>, heading: String): Int {
+        val name = heading.trim()
+        if (name.isEmpty()) return -1
+        val headingPattern = Regex(
+            """^#{1,6}\s+${Regex.escape(name)}\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+        return lines.indexOfFirst { headingPattern.matches(it.trimEnd()) }
+    }
+
+    /**
+     * Find an existing section heading for a tab (configured name or alias).
+     * Returns the line index in [lines], or -1.
+     */
+    fun findHeadingLineIndexForTab(lines: List<String>, tab: String): Int {
+        val preferred = if (tab.equals("focus", ignoreCase = true)) taskHeading else notesHeading
+        for (name in headingCandidates(preferred, tab)) {
+            val idx = findHeadingLineIndex(lines, name)
+            if (idx >= 0) return idx
+        }
+        return -1
+    }
+
+    /**
+     * Extracts the text content under [heading] as a trimmed string.
+     * Used for the plain-text preview path.
+     */
+    fun getSection(content: String, heading: String): String {
+        val lines = content.lines()
+        val (start, end) = getSectionBounds(lines, heading)
+        if (start > end || start >= lines.size) return ""
+        return lines.subList(start, minOf(end + 1, lines.size)).joinToString("\n").trim()
+    }
+
+    /**
+     * Inserts [line] under [heading] in [content].
+     *
+     * @param tab When "focus"/"notes", also matches alias headings already in the vault
+     *            (e.g. inserts under existing `## Notizen` even if config says `Notes`).
+     * @param atTop true  → insert directly under the heading (newest first; used for Notes)
+     *              false → append at the bottom of the section (used for Focus tasks)
+     * If the heading is missing and [createIfMissing] is true, appends `## heading` at EOF.
+     */
+    fun insertUnderHeading(
+        content: String,
+        heading: String,
+        line: String,
+        createIfMissing: Boolean = createMissingHeading,
+        atTop: Boolean = true,
+        tab: String? = null
+    ): String {
+        val name = heading.trim().ifBlank { return content }
+        val lines = content.lines().toMutableList()
+        val nextHeadingPattern = Regex("""^#{1,6}\s+.+""")
+
+        // Prefer existing vault heading (including aliases) so renames don't orphan content
+        var headingIdx = if (tab != null) {
+            findHeadingLineIndexForTab(lines, tab)
+        } else {
+            findHeadingLineIndex(lines, name)
+        }
+        if (headingIdx < 0) {
+            headingIdx = findHeadingLineIndex(lines, name)
+        }
+
+        if (headingIdx == -1) {
+            return if (createIfMissing) {
+                val base = content.trimEnd()
+                if (base.isEmpty()) "## $name\n$line\n" else "$base\n\n## $name\n$line\n"
+            } else {
+                content
+            }
+        }
+
+        // Last line index of this section (before the next heading, or EOF)
+        var sectionEnd = lines.lastIndex
+        for (i in (headingIdx + 1)..lines.lastIndex) {
+            if (nextHeadingPattern.matches(lines[i].trimEnd())) {
+                sectionEnd = i - 1
+                break
+            }
+        }
+
+        if (atTop) {
+            // Collapse blank lines right under the heading, then insert at top
+            var insertAt = headingIdx + 1
+            while (insertAt <= sectionEnd && insertAt < lines.size && lines[insertAt].isBlank()) {
+                lines.removeAt(insertAt)
+                sectionEnd--
+            }
+            lines.add(insertAt.coerceAtMost(lines.size), line)
+        } else {
+            // Append after the last non-blank content line in the section
+            var lastContent = headingIdx
+            for (i in (headingIdx + 1)..sectionEnd) {
+                if (i < lines.size && lines[i].isNotBlank()) lastContent = i
+            }
+            lines.add((lastContent + 1).coerceAtMost(lines.size), line)
+        }
+
+        return lines.joinToString("\n")
+    }
+
+    /** Current time formatted with the widget's configured timestampFormat. */
+    fun currentTimeHHmm(): String {
+        val fmt = try {
+            java.time.format.DateTimeFormatter.ofPattern(timestampFormat)
+        } catch (_: Exception) {
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+        }
+        return java.time.LocalTime.now().format(fmt)
+    }
+
+    /**
+     * Tab-aware smart capture. Multi-line input creates one item per non-empty line.
+     * - "focus" → each line becomes `- [ ] task` under taskHeading (bottom, input order)
+     * - "notes" → each line becomes `- **HH:mm** text` under notesHeading (top, input order)
+     */
+    fun smartCapture(content: String, input: String, tab: String = activeTab): String {
+        val itemLines = input.lines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (itemLines.isEmpty()) return content
+
+        return when (tab.lowercase()) {
+            "focus" -> {
+                var result = content
+                // Append each task at the bottom so line 1 appears above line 2
+                for (raw in itemLines) {
+                    val clean = raw
+                        .replace(Regex("""^-\s*(\[[ xX]\])?\s*"""), "")
+                        .trim()
+                    if (clean.isEmpty()) continue
+                    result = insertUnderHeading(
+                        result, taskHeading, "- [ ] $clean",
+                        createIfMissing = true,
+                        atTop = false,
+                        tab = "focus"
+                    )
+                }
+                result
+            }
+            "notes" -> {
+                val time = currentTimeHHmm()
+                var result = content
+                // Insert at top in reverse so first typed line stays on top
+                for (raw in itemLines.asReversed()) {
+                    val clean = raw
+                        .replace(Regex("""^[-*+]\s+"""), "")
+                        .trim()
+                    if (clean.isEmpty()) continue
+                    result = insertUnderHeading(
+                        result, notesHeading, "- **$time** $clean",
+                        createIfMissing = true,
+                        atTop = true,
+                        tab = "notes"
+                    )
+                }
+                result
+            }
+            else -> content
+        }
+    }
+
+    /**
+     * Reads the current widget note, applies smartCapture(), and writes the result back.
+     * Creates today's daily note if it does not exist yet.
+     *
+     * @param tab "focus" or "notes" — pass explicitly from the capture UI
+     */
+    fun writeSmartCapture(input: String, tab: String = activeTab): Boolean {
+        val noteUri = getOrCreateWidgetNoteUri() ?: return false
+        val content = readFileContent(noteUri) ?: ""
+        val newContent = smartCapture(content, input, tab)
+        if (newContent == content) return false
+        return writeFileContent(noteUri, newContent)
+    }
+
+    /**
+     * URI of the widget note, creating today's daily note file when needed.
+     */
+    fun getOrCreateWidgetNoteUri(): Uri? {
+        getWidgetNoteUri()?.let { return it }
+        if (noteMode != NoteMode.DAILY) return null
+
+        val uri = vaultUri ?: return null
+        val rootDoc = DocumentFile.fromTreeUri(context, uri) ?: return null
+        val todayFileName = getTodayFileName()
+        val targetDir = if (dailyFolder.isNotBlank()) {
+            findOrCreateSubDirectory(rootDoc, dailyFolder)
+        } else {
+            rootDoc
+        } ?: return null
+
+        val existing = targetDir.findFile(todayFileName)
+        if (existing != null) return existing.uri
+        val created = targetDir.createFile("text/markdown", todayFileName) ?: return null
+        writeFileContent(created.uri, "")
+        return created.uri
+    }
+
+    /**
      * Toggle a checklist item by its line index in the current widget note.
+     * Checking appends ` ✅ HH:mm`; unchecking removes any completion stamp.
      */
     fun toggleChecklistItem(lineIndex: Int): Boolean {
         val noteUri = getWidgetNoteUri() ?: return false
@@ -487,12 +1025,129 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
 
         val indent = match.groupValues[1]
         val currentState = match.groupValues[2]
-        val text = match.groupValues[3]
+        val rawText = match.groupValues[3].trim()
+        val cleanText = stripCompletionMarker(rawText)
 
-        val newState = if (currentState.lowercase() == "x") " " else "x"
-        lines[lineIndex] = "$indent- [$newState] $text"
+        val wasChecked = currentState.lowercase() == "x"
+        lines[lineIndex] = if (wasChecked) {
+            "$indent- [ ] $cleanText"
+        } else {
+            val stamp = currentTimeHHmm()
+            "$indent- [x] $cleanText ✅ $stamp"
+        }
 
         return writeFileContent(noteUri, lines.joinToString("\n"))
+    }
+
+    enum class LineKind { CHECKLIST, BULLET, PLAIN, HEADING }
+
+    data class EditableLine(
+        val kind: LineKind,
+        /** Text shown in the editor (no list markers / no checkbox). */
+        val text: String
+    )
+
+    /** Delete the entire line at [lineIndex] from the widget note. */
+    fun deleteChecklistItem(lineIndex: Int): Boolean = deleteLine(lineIndex)
+
+    fun deleteLine(lineIndex: Int): Boolean {
+        val noteUri = getWidgetNoteUri() ?: return false
+        val content = readFileContent(noteUri) ?: return false
+        val lines = content.lines().toMutableList()
+        if (lineIndex < 0 || lineIndex >= lines.size) return false
+        lines.removeAt(lineIndex)
+        val cleaned = lines.joinToString("\n").replace(Regex("\n{3,}"), "\n\n")
+        return writeFileContent(noteUri, cleaned)
+    }
+
+    /**
+     * Replace the task text of a checklist line (preserves check state + completion stamp rules).
+     * If [newText] is blank, deletes the line instead.
+     */
+    fun updateChecklistItemText(lineIndex: Int, newText: String): Boolean =
+        updateLineContent(lineIndex, newText)
+
+    /**
+     * Update any editable line (checklist, bullet note, or plain text).
+     * Preserves list/checkbox syntax and completion stamps where applicable.
+     */
+    fun updateLineContent(lineIndex: Int, newText: String): Boolean {
+        val cleaned = newText.trim()
+        if (cleaned.isEmpty()) return deleteLine(lineIndex)
+
+        val noteUri = getWidgetNoteUri() ?: return false
+        val content = readFileContent(noteUri) ?: return false
+        val lines = content.lines().toMutableList()
+        if (lineIndex < 0 || lineIndex >= lines.size) return false
+
+        val line = lines[lineIndex]
+        val checkMatch = CHECKLIST_REGEX.matchEntire(line)
+        if (checkMatch != null) {
+            val indent = checkMatch.groupValues[1]
+            val state = checkMatch.groupValues[2]
+            val wasChecked = state.lowercase() == "x"
+            val prevRaw = checkMatch.groupValues[3].trim()
+            val prevStamp = COMPLETION_SUFFIX.find(prevRaw)?.groupValues?.get(1)
+            val body = stripCompletionMarker(cleaned)
+            lines[lineIndex] = if (wasChecked) {
+                val stamp = prevStamp ?: currentTimeHHmm()
+                "$indent- [x] $body ✅ $stamp"
+            } else {
+                "$indent- [ ] $body"
+            }
+            return writeFileContent(noteUri, lines.joinToString("\n"))
+        }
+
+        val bulletMatch = BULLET_REGEX.matchEntire(line)
+        if (bulletMatch != null) {
+            val indent = bulletMatch.groupValues[1]
+            // Prefer original bullet marker (- * +)
+            val bulletChar = when {
+                line.trimStart().startsWith("*") -> "*"
+                line.trimStart().startsWith("+") -> "+"
+                else -> "-"
+            }
+            lines[lineIndex] = "$indent$bulletChar $cleaned"
+            return writeFileContent(noteUri, lines.joinToString("\n"))
+        }
+
+        // Plain line — keep leading indentation if any
+        val leading = Regex("""^\s*""").find(line)?.value ?: ""
+        lines[lineIndex] = "$leading$cleaned"
+        return writeFileContent(noteUri, lines.joinToString("\n"))
+    }
+
+    /** Read raw checklist task text (without checkbox syntax) for editing. */
+    fun getChecklistItemText(lineIndex: Int): String? =
+        getEditableLine(lineIndex)?.text
+
+    /**
+     * Load editable content for a note line (tasks, bullets, or plain text).
+     * Headings are not editable through this path.
+     */
+    fun getEditableLine(lineIndex: Int): EditableLine? {
+        val noteUri = getWidgetNoteUri() ?: return null
+        val content = readFileContent(noteUri) ?: return null
+        val lines = content.lines()
+        if (lineIndex < 0 || lineIndex >= lines.size) return null
+        val line = lines[lineIndex]
+
+        val checkMatch = CHECKLIST_REGEX.matchEntire(line)
+        if (checkMatch != null) {
+            return EditableLine(
+                LineKind.CHECKLIST,
+                stripCompletionMarker(checkMatch.groupValues[3].trim())
+            )
+        }
+        if (HEADING_REGEX.matchEntire(line) != null) {
+            return EditableLine(LineKind.HEADING, HEADING_REGEX.matchEntire(line)!!.groupValues[2].trim())
+        }
+        val bulletMatch = BULLET_REGEX.matchEntire(line)
+        if (bulletMatch != null) {
+            return EditableLine(LineKind.BULLET, bulletMatch.groupValues[2].trim())
+        }
+        if (line.isBlank()) return null
+        return EditableLine(LineKind.PLAIN, line.trim())
     }
 
     /**

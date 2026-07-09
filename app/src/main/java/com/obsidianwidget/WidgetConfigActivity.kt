@@ -2,9 +2,11 @@ package com.obsidianwidget
 
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -16,6 +18,7 @@ import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.ColorUtils
 
 class WidgetConfigActivity : AppCompatActivity() {
 
@@ -35,12 +38,40 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var tapCheckboxOnlyToggle: Switch
     private lateinit var showAddToTopToggle: Switch
     private lateinit var showTodoCountToggle: Switch
+    private lateinit var hideFrontmatterToggle: Switch
+    private lateinit var startAfterHeadingToggle: Switch
+    private lateinit var hapticFeedbackToggle: Switch
+    private lateinit var autoSyncToggle: Switch
+    // Smart Daily
+    private lateinit var smartTabsToggle: Switch
+    private lateinit var smartCaptureToggle: Switch
+    private lateinit var createMissingHeadingToggle: Switch
+    private lateinit var taskHeadingInput: EditText
+    private lateinit var notesHeadingInput: EditText
+    private lateinit var timestampFormatInput: EditText
+    private lateinit var defaultTabGroup: RadioGroup
     private lateinit var dateFormatInput: EditText
     private lateinit var themeGroup: RadioGroup
+    private lateinit var saveButton: Button
+    private lateinit var previewSwatch: View
+    private lateinit var previewThemeLabel: TextView
+    private lateinit var previewTitle: TextView
+    private lateinit var appearanceLabel: TextView
+    private lateinit var sectionLabels: List<TextView>
     private var selectedAccentColor: String = "#D97757"
     private val colorSwatchIds = listOf(
         R.id.color_terracotta, R.id.color_purple, R.id.color_blue, R.id.color_green,
         R.id.color_red, R.id.color_teal, R.id.color_pink, R.id.color_amber
+    )
+    private val colorNames = mapOf(
+        "#D97757" to "Terracotta",
+        "#7C5FC7" to "Purple",
+        "#4A9EF5" to "Blue",
+        "#4CAF50" to "Green",
+        "#E53935" to "Red",
+        "#009688" to "Teal",
+        "#E91E63" to "Pink",
+        "#FFB300" to "Amber"
     )
 
     private val folderPicker = registerForActivityResult(
@@ -95,13 +126,40 @@ class WidgetConfigActivity : AppCompatActivity() {
         tapCheckboxOnlyToggle = findViewById(R.id.config_tap_checkbox_only)
         showAddToTopToggle = findViewById(R.id.config_show_add_to_top)
         showTodoCountToggle = findViewById(R.id.config_show_todo_count)
+        hideFrontmatterToggle = findViewById(R.id.config_hide_frontmatter)
+        startAfterHeadingToggle = findViewById(R.id.config_start_after_heading)
+        hapticFeedbackToggle = findViewById(R.id.config_haptic_feedback)
+        autoSyncToggle = findViewById(R.id.config_auto_sync)
+        smartTabsToggle = findViewById(R.id.config_smart_tabs)
+        smartCaptureToggle = findViewById(R.id.config_smart_capture)
+        createMissingHeadingToggle = findViewById(R.id.config_create_missing_heading)
+        taskHeadingInput = findViewById(R.id.config_task_heading)
+        notesHeadingInput = findViewById(R.id.config_notes_heading)
+        timestampFormatInput = findViewById(R.id.config_timestamp_format)
+        defaultTabGroup = findViewById(R.id.config_default_tab_group)
         dateFormatInput = findViewById(R.id.config_date_format)
         themeGroup = findViewById(R.id.config_theme_group)
+        saveButton = findViewById(R.id.config_save)
+        previewSwatch = findViewById(R.id.config_theme_preview_swatch)
+        previewThemeLabel = findViewById(R.id.config_theme_preview_theme)
+        previewTitle = findViewById(R.id.config_theme_preview_title)
+        appearanceLabel = findViewById(R.id.config_appearance_label)
+        sectionLabels = listOf(
+            findViewById(R.id.config_section_note_source),
+            findViewById(R.id.config_section_behavior),
+            findViewById(R.id.config_section_smart_daily),
+            appearanceLabel
+        )
 
         // Set up accent color swatches
         setupColorSwatches()
 
-        // Load saved settings into UI
+        // Live theme updates
+        themeGroup.setOnCheckedChangeListener { _, _ ->
+            updateAppearancePreview()
+        }
+
+        // Load saved settings into UI (applies widget accent across the whole screen)
         loadSettings()
 
         transparencySeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -126,7 +184,7 @@ class WidgetConfigActivity : AppCompatActivity() {
             updateModeSections(checkedId == R.id.config_radio_pinned)
         }
 
-        findViewById<Button>(R.id.config_save).setOnClickListener {
+        saveButton.setOnClickListener {
             saveAndFinish()
         }
     }
@@ -163,17 +221,47 @@ class WidgetConfigActivity : AppCompatActivity() {
         tapCheckboxOnlyToggle.isChecked = vaultManager.tapCheckboxOnly
         showAddToTopToggle.isChecked = vaultManager.showAddToTop
         showTodoCountToggle.isChecked = vaultManager.showTodoCount
+        hideFrontmatterToggle.isChecked = vaultManager.hideFrontmatter
+        startAfterHeadingToggle.isChecked = vaultManager.startAfterFirstHeading
+        hapticFeedbackToggle.isChecked = vaultManager.hapticFeedback
+        autoSyncToggle.isChecked = vaultManager.autoSync
+        smartTabsToggle.isChecked = vaultManager.smartTabsEnabled
+        smartCaptureToggle.isChecked = vaultManager.smartCaptureEnabled
+        createMissingHeadingToggle.isChecked = vaultManager.createMissingHeading
+        taskHeadingInput.setText(vaultManager.taskHeading)
+        notesHeadingInput.setText(vaultManager.notesHeading)
+        timestampFormatInput.setText(vaultManager.timestampFormat)
+        defaultTabGroup.check(
+            if (vaultManager.defaultTab == "notes") R.id.config_default_tab_notes
+            else R.id.config_default_tab_focus
+        )
         dateFormatInput.setText(vaultManager.dateFormat)
 
         transparencySeekBar.progress = vaultManager.widgetAlpha
         transparencyLabel.text = "${vaultManager.widgetAlpha}%"
 
-        // Theme
-        themeGroup.check(if (vaultManager.widgetTheme == "light") R.id.config_theme_light else R.id.config_theme_dark)
+        // Theme — clear listener side-effects during load, then re-apply
+        themeGroup.check(
+            if (vaultManager.widgetTheme == "light") R.id.config_theme_light
+            else R.id.config_theme_dark
+        )
 
-        // Accent color
-        selectedAccentColor = vaultManager.accentColor
+        // Accent color — normalize casing for reliable swatch match
+        selectedAccentColor = vaultManager.accentColor.uppercase().let { raw ->
+            // Prefer the canonical swatch hex when possible
+            colorSwatchIds.mapNotNull { id ->
+                findViewById<View>(id).tag?.toString()?.uppercase()
+            }.firstOrNull { it.equals(raw, ignoreCase = true) }
+                ?: vaultManager.accentColor
+        }
+        // Keep original tag form for parseColor
+        selectedAccentColor = colorSwatchIds
+            .mapNotNull { findViewById<View>(it).tag?.toString() }
+            .firstOrNull { it.equals(vaultManager.accentColor, ignoreCase = true) }
+            ?: vaultManager.accentColor
+
         highlightSelectedColor()
+        updateAppearancePreview()
     }
 
     private fun updateModeSections(isPinned: Boolean) {
@@ -245,7 +333,7 @@ class WidgetConfigActivity : AppCompatActivity() {
     private fun setupColorSwatches() {
         for (id in colorSwatchIds) {
             val swatch = findViewById<View>(id)
-            val colorHex = swatch.tag as String
+            val colorHex = swatch.tag?.toString() ?: continue
             val color = Color.parseColor(colorHex)
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -255,6 +343,7 @@ class WidgetConfigActivity : AppCompatActivity() {
             swatch.setOnClickListener {
                 selectedAccentColor = colorHex
                 highlightSelectedColor()
+                updateAppearancePreview()
             }
         }
     }
@@ -262,20 +351,123 @@ class WidgetConfigActivity : AppCompatActivity() {
     private fun highlightSelectedColor() {
         for (id in colorSwatchIds) {
             val swatch = findViewById<View>(id)
-            val colorHex = swatch.tag as String
+            val colorHex = swatch.tag?.toString() ?: continue
             val color = Color.parseColor(colorHex)
             val isSelected = colorHex.equals(selectedAccentColor, ignoreCase = true)
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(color)
                 if (isSelected) {
-                    setStroke(4, Color.WHITE)
+                    setStroke(5, Color.WHITE)
                 } else {
                     setStroke(0, Color.TRANSPARENT)
                 }
             }
             swatch.background = bg
         }
+    }
+
+    /** Updates live preview + tints the whole config UI to the widget accent. */
+    private fun updateAppearancePreview() {
+        val accent = try {
+            Color.parseColor(selectedAccentColor)
+        } catch (_: Exception) {
+            Color.parseColor("#D97757")
+        }
+        val isLight = themeGroup.checkedRadioButtonId == R.id.config_theme_light
+        val themeName = if (isLight) "Light" else "Dark"
+        val accentName = colorNames.entries
+            .firstOrNull { it.key.equals(selectedAccentColor, ignoreCase = true) }
+            ?.value
+            ?: selectedAccentColor
+
+        previewThemeLabel.text = "$themeName · $accentName"
+        previewTitle.setTextColor(if (isLight) 0xFF1A1A1E.toInt() else 0xFFE8E6E3.toInt())
+        previewThemeLabel.setTextColor(if (isLight) 0xFF1A1A1E.toInt() else 0xFFE8E6E3.toInt())
+
+        val density = resources.displayMetrics.density
+        val previewBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 14f * density
+            setColor(if (isLight) 0xFFF0F0F2.toInt() else 0xFF2A2A30.toInt())
+            setStroke((1 * density).toInt(), ColorUtils.setAlphaComponent(accent, 90))
+        }
+        findViewById<View>(R.id.config_theme_preview).background = previewBg
+
+        val swatchBg = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(accent)
+            setStroke((3 * density).toInt(), ColorUtils.setAlphaComponent(Color.WHITE, 180))
+        }
+        previewSwatch.background = swatchBg
+
+        // Every section header matches the widget accent
+        for (label in sectionLabels) {
+            label.setTextColor(accent)
+        }
+        applyAccentToControls(accent)
+    }
+
+    private fun roundedAccentButton(accent: Int, cornerDp: Float = 20f): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = cornerDp * resources.displayMetrics.density
+            setColor(accent)
+        }
+    }
+
+    private fun applyAccentToControls(accent: Int) {
+        val tint = ColorStateList.valueOf(accent)
+        val track = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(ColorUtils.setAlphaComponent(accent, 140), 0xFF5A5A5E.toInt())
+        )
+
+        val switches = listOf(
+            showButtonsToggle, sortUncheckedToggle, tapCheckboxOnlyToggle,
+            showAddToTopToggle, showTodoCountToggle, hideFrontmatterToggle,
+            startAfterHeadingToggle, hapticFeedbackToggle, autoSyncToggle,
+            smartTabsToggle, smartCaptureToggle, createMissingHeadingToggle
+        )
+        for (sw in switches) {
+            sw.thumbTintList = tint
+            sw.trackTintList = track
+        }
+
+        findViewById<android.widget.RadioButton>(R.id.config_theme_dark).buttonTintList = tint
+        findViewById<android.widget.RadioButton>(R.id.config_theme_light).buttonTintList = tint
+        findViewById<android.widget.RadioButton>(R.id.config_radio_daily).buttonTintList = tint
+        findViewById<android.widget.RadioButton>(R.id.config_radio_pinned).buttonTintList = tint
+        findViewById<android.widget.RadioButton>(R.id.config_default_tab_focus).buttonTintList = tint
+        findViewById<android.widget.RadioButton>(R.id.config_default_tab_notes).buttonTintList = tint
+
+        transparencySeekBar.progressTintList = tint
+        transparencySeekBar.thumbTintList = tint
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            transparencySeekBar.progressBackgroundTintList =
+                ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 60))
+        }
+
+        // Material3 Button ignores custom backgrounds and keeps theme colorPrimary
+        // (orange) via backgroundTint — set the tint explicitly to the widget accent.
+        saveButton.backgroundTintList = tint
+        saveButton.background = roundedAccentButton(accent, 20f)
+        // Clear any leftover theme tint that would paint over our drawable
+        saveButton.backgroundTintList = ColorStateList.valueOf(accent)
+
+        val selectVault = findViewById<Button>(R.id.config_select_vault)
+        selectVault.background = roundedAccentButton(accent, 18f)
+        selectVault.backgroundTintList = ColorStateList.valueOf(accent)
+
+        // Also tint filled Material ripple if present
+        try {
+            val materialSave = saveButton as? com.google.android.material.button.MaterialButton
+            materialSave?.backgroundTintList = ColorStateList.valueOf(accent)
+            materialSave?.rippleColor =
+                ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 80))
+            val materialSelect = selectVault as? com.google.android.material.button.MaterialButton
+            materialSelect?.backgroundTintList = ColorStateList.valueOf(accent)
+        } catch (_: Exception) { }
     }
 
     override fun onUserLeaveHint() {
@@ -285,7 +477,17 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
     }
 
+    private fun currentThemeValue(): String =
+        if (themeGroup.checkedRadioButtonId == R.id.config_theme_light) "light" else "dark"
+
     private fun saveAndFinish() {
+        // Persist theme/accent first with explicit property writes so they cannot
+        // be lost if a later step fails, then batch-save the rest.
+        vaultManager.widgetTheme = currentThemeValue()
+        vaultManager.accentColor = selectedAccentColor
+        vaultManager.hapticFeedback = hapticFeedbackToggle.isChecked
+        vaultManager.autoSync = autoSyncToggle.isChecked
+
         vaultManager.saveWidgetSettings(
             dailyFolder = dailyFolderInput.text.toString().trim(),
             dateFormat = dateFormatInput.text.toString().trim().ifBlank { "yyyy-MM-dd" },
@@ -297,15 +499,29 @@ class WidgetConfigActivity : AppCompatActivity() {
             tapCheckboxOnly = tapCheckboxOnlyToggle.isChecked,
             addToTop = vaultManager.addToTop,
             showAddToTop = showAddToTopToggle.isChecked,
-            widgetTheme = if (themeGroup.checkedRadioButtonId == R.id.config_theme_light) "light" else "dark",
+            widgetTheme = currentThemeValue(),
             accentColor = selectedAccentColor,
-            showTodoCount = showTodoCountToggle.isChecked
+            showTodoCount = showTodoCountToggle.isChecked,
+            hideFrontmatter = hideFrontmatterToggle.isChecked,
+            startAfterFirstHeading = startAfterHeadingToggle.isChecked,
+            smartTabsEnabled = smartTabsToggle.isChecked,
+            smartCaptureEnabled = smartCaptureToggle.isChecked,
+            taskHeading = taskHeadingInput.text.toString(),
+            notesHeading = notesHeadingInput.text.toString(),
+            timestampFormat = timestampFormatInput.text.toString(),
+            createMissingHeading = createMissingHeadingToggle.isChecked,
+            defaultTab = if (defaultTabGroup.checkedRadioButtonId == R.id.config_default_tab_notes) "notes" else "focus",
+            hapticFeedback = hapticFeedbackToggle.isChecked,
+            autoSync = autoSyncToggle.isChecked
         )
 
-        // Trigger update for this specific widget
+        // Force a full widget redraw (chrome + remote list data) so theme/accent apply immediately
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val provider = ObsidianWidgetProvider()
         provider.onUpdate(this, appWidgetManager, intArrayOf(appWidgetId))
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist)
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist_focus)
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_checklist_notes)
 
         // Also refresh all other widgets so they don't go stale
         ObsidianWidgetProvider.updateAllWidgets(this)

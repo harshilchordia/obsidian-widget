@@ -12,7 +12,8 @@ class ObsidianWidgetApp : Application() {
     private val screenUnlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == Intent.ACTION_USER_PRESENT) {
-                ObsidianWidgetProvider.updateAllWidgets(context)
+                // Only widgets with Auto Sync enabled refresh on unlock
+                ObsidianWidgetProvider.updateAutoSyncWidgets(context)
             }
         }
     }
