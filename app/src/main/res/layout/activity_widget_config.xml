@@ -31,6 +31,7 @@
 
             <!-- ===== NOTE SOURCE ===== -->
             <TextView
+                android:id="@+id/config_section_note_source"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="NOTE SOURCE"
@@ -173,6 +174,7 @@
 
             <!-- ===== BEHAVIOR ===== -->
             <TextView
+                android:id="@+id/config_section_behavior"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BEHAVIOR"
@@ -525,6 +527,7 @@
 
             <!-- ===== SMART DAILY ===== -->
             <TextView
+                android:id="@+id/config_section_smart_daily"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SMART DAILY"

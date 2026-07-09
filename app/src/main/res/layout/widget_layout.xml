@@ -72,7 +72,7 @@
             android:scaleType="centerInside" />
     </LinearLayout>
 
-    <!-- Smart Daily tab bar (shown only when smartTabsEnabled) -->
+    <!-- Smart Daily tab bar -->
     <LinearLayout
         android:id="@+id/widget_tab_bar"
         android:layout_width="match_parent"
@@ -109,17 +109,13 @@
             android:paddingEnd="8dp" />
     </LinearLayout>
 
-    <!--
-      Content area: takes all remaining vertical space so the button bar
-      stays pinned to the bottom regardless of list content size.
-    -->
+    <!-- Content fills remaining space so the button bar never jumps -->
     <FrameLayout
         android:id="@+id/widget_content_area"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <!-- Note Preview (empty / no structured items) -->
         <TextView
             android:id="@+id/widget_note_preview"
             android:layout_width="match_parent"
@@ -132,7 +128,7 @@
             android:ellipsize="end"
             android:visibility="gone" />
 
-        <!-- Single checklist ListView (smart tabs off) -->
+        <!-- Single list (smart tabs off) -->
         <ListView
             android:id="@+id/widget_checklist"
             android:layout_width="match_parent"
@@ -149,55 +145,44 @@
             android:paddingBottom="2dp"
             android:clipToPadding="false" />
 
-        <!--
-          Dual lists with slide animation when Smart Daily tabs are enabled.
-          Child 0 = Focus, Child 1 = Notes.
-        -->
-        <ViewFlipper
-            android:id="@+id/widget_tab_flipper"
+        <!-- Focus list (smart tabs) — visibility toggled, no flipper/animation -->
+        <ListView
+            android:id="@+id/widget_checklist_focus"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:autoStart="false"
-            android:animateFirstView="false"
-            android:inAnimation="@anim/slide_in_right"
-            android:outAnimation="@anim/slide_out_left"
-            android:visibility="gone">
+            android:divider="@android:color/transparent"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical"
+            android:fadeScrollbars="true"
+            android:scrollbarStyle="insideOverlay"
+            android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
+            android:scrollbarSize="3dp"
+            android:fadingEdge="vertical"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:clipToPadding="false"
+            android:visibility="gone" />
 
-            <ListView
-                android:id="@+id/widget_checklist_focus"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:divider="@android:color/transparent"
-                android:dividerHeight="0dp"
-                android:scrollbars="vertical"
-                android:fadeScrollbars="true"
-                android:scrollbarStyle="insideOverlay"
-                android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
-                android:scrollbarSize="3dp"
-                android:fadingEdge="vertical"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:clipToPadding="false" />
-
-            <ListView
-                android:id="@+id/widget_checklist_notes"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:divider="@android:color/transparent"
-                android:dividerHeight="0dp"
-                android:scrollbars="vertical"
-                android:fadeScrollbars="true"
-                android:scrollbarStyle="insideOverlay"
-                android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
-                android:scrollbarSize="3dp"
-                android:fadingEdge="vertical"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:clipToPadding="false" />
-        </ViewFlipper>
+        <!-- Notes list (smart tabs) -->
+        <ListView
+            android:id="@+id/widget_checklist_notes"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical"
+            android:fadeScrollbars="true"
+            android:scrollbarStyle="insideOverlay"
+            android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
+            android:scrollbarSize="3dp"
+            android:fadingEdge="vertical"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:clipToPadding="false"
+            android:visibility="gone" />
     </FrameLayout>
 
-    <!-- Bottom Buttons — always after weighted content, never jumps with list size -->
+    <!-- Bottom buttons — always after weighted content -->
     <LinearLayout
         android:id="@+id/widget_button_bar"
         android:layout_width="match_parent"

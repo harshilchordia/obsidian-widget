@@ -57,6 +57,7 @@ class WidgetConfigActivity : AppCompatActivity() {
     private lateinit var previewThemeLabel: TextView
     private lateinit var previewTitle: TextView
     private lateinit var appearanceLabel: TextView
+    private lateinit var sectionLabels: List<TextView>
     private var selectedAccentColor: String = "#D97757"
     private val colorSwatchIds = listOf(
         R.id.color_terracotta, R.id.color_purple, R.id.color_blue, R.id.color_green,
@@ -143,6 +144,12 @@ class WidgetConfigActivity : AppCompatActivity() {
         previewThemeLabel = findViewById(R.id.config_theme_preview_theme)
         previewTitle = findViewById(R.id.config_theme_preview_title)
         appearanceLabel = findViewById(R.id.config_appearance_label)
+        sectionLabels = listOf(
+            findViewById(R.id.config_section_note_source),
+            findViewById(R.id.config_section_behavior),
+            findViewById(R.id.config_section_smart_daily),
+            appearanceLabel
+        )
 
         // Set up accent color swatches
         setupColorSwatches()
@@ -152,7 +159,7 @@ class WidgetConfigActivity : AppCompatActivity() {
             updateAppearancePreview()
         }
 
-        // Load saved settings into UI
+        // Load saved settings into UI (applies widget accent across the whole screen)
         loadSettings()
 
         transparencySeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -360,7 +367,7 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
     }
 
-    /** Updates live preview + tints interactive config controls to the selected accent. */
+    /** Updates live preview + tints the whole config UI to the widget accent. */
     private fun updateAppearancePreview() {
         val accent = try {
             Color.parseColor(selectedAccentColor)
@@ -378,30 +385,42 @@ class WidgetConfigActivity : AppCompatActivity() {
         previewTitle.setTextColor(if (isLight) 0xFF1A1A1E.toInt() else 0xFFE8E6E3.toInt())
         previewThemeLabel.setTextColor(if (isLight) 0xFF1A1A1E.toInt() else 0xFFE8E6E3.toInt())
 
+        val density = resources.displayMetrics.density
         val previewBg = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = 16f * resources.displayMetrics.density
+            cornerRadius = 14f * density
             setColor(if (isLight) 0xFFF0F0F2.toInt() else 0xFF2A2A30.toInt())
+            setStroke((1 * density).toInt(), ColorUtils.setAlphaComponent(accent, 90))
         }
         findViewById<View>(R.id.config_theme_preview).background = previewBg
 
         val swatchBg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(accent)
-            setStroke(3, ColorUtils.setAlphaComponent(Color.WHITE, 180))
+            setStroke((3 * density).toInt(), ColorUtils.setAlphaComponent(Color.WHITE, 180))
         }
         previewSwatch.background = swatchBg
 
-        // Tint save button + section labels + switches to selected accent
-        appearanceLabel.setTextColor(accent)
+        // Every section header matches the widget accent
+        for (label in sectionLabels) {
+            label.setTextColor(accent)
+        }
         applyAccentToControls(accent)
+    }
+
+    private fun roundedAccentButton(accent: Int, cornerDp: Float = 20f): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = cornerDp * resources.displayMetrics.density
+            setColor(accent)
+        }
     }
 
     private fun applyAccentToControls(accent: Int) {
         val tint = ColorStateList.valueOf(accent)
         val track = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(ColorUtils.setAlphaComponent(accent, 120), 0xFF5A5A5E.toInt())
+            intArrayOf(ColorUtils.setAlphaComponent(accent, 140), 0xFF5A5A5E.toInt())
         )
 
         val switches = listOf(
@@ -424,19 +443,14 @@ class WidgetConfigActivity : AppCompatActivity() {
 
         transparencySeekBar.progressTintList = tint
         transparencySeekBar.thumbTintList = tint
-
-        // Save button background tinted to accent
-        val saveBg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 20f * resources.displayMetrics.density
-            setColor(accent)
-        }
-        saveButton.background = saveBg
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Keep select vault button accented too when possible
-            findViewById<Button>(R.id.config_select_vault).backgroundTintList = tint
+            transparencySeekBar.progressBackgroundTintList =
+                ColorStateList.valueOf(ColorUtils.setAlphaComponent(accent, 60))
         }
+
+        // Solid accent backgrounds (more reliable than tint lists on Material buttons)
+        saveButton.background = roundedAccentButton(accent, 20f)
+        findViewById<Button>(R.id.config_select_vault).background = roundedAccentButton(accent, 18f)
     }
 
     override fun onUserLeaveHint() {
