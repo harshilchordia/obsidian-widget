@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:updatePeriodMillis="900000"
+    android:initialLayout="@layout/quick_capture_widget_layout"
+    android:configure="com.obsidianwidget.QuickCaptureConfigActivity"
+    android:resizeMode="none"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:previewLayout="@layout/quick_capture_widget_layout"
+    android:description="@string/quick_capture_widget_description"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1" />
