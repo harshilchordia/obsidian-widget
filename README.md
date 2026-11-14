@@ -47,8 +47,9 @@ Or open in Android Studio and click **Run**.
 - **Multiline capture** — add several tasks at once with one non-empty item per line
 - **Haptic actions** — receive subtle feedback for widget controls and task toggles
 - **TODO counter** — optional live count of unchecked tasks in the header
-- **Markdown rendering** — bold, italic, links, headings, and bullet lists
-- **Clickable links** — tap URLs and Markdown links to open in your browser
+- **Markdown rendering** — Obsidian-flavoured: headings, emphasis, highlights, code blocks, math, lists, quotes, callouts, tables, footnotes, tags and wikilinks
+- **Tasks anywhere** — toggle `- [ ]`, `* [ ]`, `1. [ ]` and tasks inside quotes or callouts
+- **Clickable links** — tap URLs to open them in your browser, tap `[[wikilinks]]` to open the note in Obsidian
 - **Nested indentation** — sub-items display with matching indent levels
 - **Sort unchecked first** — push completed tasks to the bottom
 - **Accent color presets** — 8 color choices (terracotta, purple, blue, green, red, teal, pink, amber)
@@ -94,9 +95,12 @@ app/src/main/java/com/obsidianwidget/
 ├── MainActivity.kt               # Welcome screen & vault selection
 ├── WidgetConfigActivity.kt       # Per-widget settings (gear icon)
 ├── ObsidianWidgetProvider.kt     # Widget rendering & action handling
-├── ChecklistWidgetService.kt     # ListView adapter (checkboxes, text, headings)
+├── ChecklistWidgetService.kt     # ListView adapter (renders every Markdown block)
+├── MarkdownParser.kt             # Block-level Markdown parser (Obsidian flavour)
+├── MarkdownInline.kt             # Inline Markdown parser (emphasis, links, tags, …)
+├── MarkdownStyler.kt             # Maps parsed inline styles to Android spans
 ├── QuickCaptureActivity.kt       # Quick capture & add-line dialogs
-└── VaultManager.kt               # Vault I/O, preferences, themes, markdown parsing
+└── VaultManager.kt               # Vault I/O, preferences, themes
 ```
 
 ## Tech Stack

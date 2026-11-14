@@ -25,17 +25,34 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         val title: String
     )
 
+    enum class BlockType {
+        TASK, PARAGRAPH, HEADING, BULLET, ORDERED, HORIZONTAL_RULE, CODE, MATH,
+        TABLE_ROW, CALLOUT_TITLE, FOOTNOTE, PROPERTY;
+
+        val isListItem: Boolean get() = this == TASK || this == BULLET || this == ORDERED
+    }
+
     data class ChecklistItem(
         val lineIndex: Int,
         val text: String,
-        val isChecked: Boolean,
-        val isPlainText: Boolean = false,
-        val isHeading: Boolean = false,
-        val isBullet: Boolean = false,
-        val isHorizontalRule: Boolean = false,
+        val type: BlockType,
+        val isChecked: Boolean = false,
         val indentLevel: Int = 0,
+        val headingLevel: Int = 0,
+        /** "•", "3." or, for footnotes, the footnote label. */
+        val listMarker: String? = null,
+        val quoteDepth: Int = 0,
+        val calloutType: String? = null,
+        val calloutFold: String = "",
+        val codeLanguage: String = "",
+        val tableCells: List<String> = emptyList(),
+        val tableAlignments: List<Char> = emptyList(),
+        val isTableHeader: Boolean = false,
         val propertyName: String? = null
-    )
+    ) {
+        /** Everything except tasks is display-only content. */
+        val isPlainText: Boolean get() = type != BlockType.TASK
+    }
 
     companion object {
         private const val PREFS_NAME = "obsidian_widget_prefs"
@@ -66,10 +83,8 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         private const val KEY_SHOW_TODO_COUNT = "show_todo_count"
         private const val DEFAULT_DATE_FORMAT = "yyyy-MM-dd"
 
-        private val CHECKLIST_REGEX = Regex("""^(\s*)-\s*\[([ xX])\]\s*(.*)$""")
         private val CAPTURE_TASK_PREFIX = Regex("""^(?:[-*+]\s*)?(?:\[[ xX]\]\s*)?""")
         private val HEADING_REGEX = Regex("""^(#{1,6})\s+(.+)$""")
-        private val BULLET_REGEX = Regex("""^(\s*)[*+-]\s+(.+)$""")
         private val PROPERTY_REGEX = Regex("""^([A-Za-z0-9_-]+):\s*(.*)$""")
 
         fun deleteWidgetPrefs(context: Context, widgetId: Int) {
@@ -376,15 +391,6 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         }
     }
 
-    fun readWidgetNoteForDisplay(): String? {
-        val content = readWidgetNote() ?: return null
-        if (!hideProperties) return content
-
-        val lines = content.lines()
-        val frontmatterEnd = findFrontmatterEnd(lines) ?: return content
-        return lines.drop(frontmatterEnd + 1).joinToString("\n").trimStart('\n', '\r')
-    }
-
     private fun findFrontmatterEnd(lines: List<String>): Int? {
         if (lines.firstOrNull()?.trim() != "---") return null
         val closingOffset = lines.drop(1).indexOfFirst { it.trim() == "---" }
@@ -627,33 +633,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         if (frontmatterEnd != null && !hideProperties) {
             items.addAll(parseFrontmatterProperties(lines, frontmatterEnd))
         }
-        lines.forEachIndexed { index, line ->
-            if (frontmatterEnd != null && index <= frontmatterEnd) return@forEachIndexed
-            val match = CHECKLIST_REGEX.matchEntire(line)
-            val headingMatch = HEADING_REGEX.matchEntire(line)
-            if (match != null) {
-                val indent = match.groupValues[1]
-                val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
-                val checked = match.groupValues[2].lowercase() == "x"
-                val text = match.groupValues[3].trim()
-                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = checked, indentLevel = indentLevel))
-            } else if (line.trim() == "---") {
-                items.add(ChecklistItem(lineIndex = index, text = "", isChecked = false, isPlainText = true, isHorizontalRule = true))
-            } else if (headingMatch != null) {
-                val text = headingMatch.groupValues[2].trim()
-                items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isHeading = true))
-            } else {
-                val bulletMatch = BULLET_REGEX.matchEntire(line)
-                if (bulletMatch != null) {
-                    val indent = bulletMatch.groupValues[1]
-                    val indentLevel = indent.count { it == ' ' } / 2 + indent.count { it == '\t' }
-                    val text = bulletMatch.groupValues[2].trim()
-                    items.add(ChecklistItem(lineIndex = index, text = text, isChecked = false, isPlainText = true, isBullet = true, indentLevel = indentLevel))
-                } else if (line.isNotBlank()) {
-                    items.add(ChecklistItem(lineIndex = index, text = line.trim(), isChecked = false, isPlainText = true))
-                }
-            }
-        }
+        items.addAll(MarkdownParser.parse(lines, frontmatterEnd?.plus(1) ?: 0))
         if (sortUnchecked) {
             val nonChecklist = items.filter { it.isPlainText }
             val unchecked = items.filter { !it.isPlainText && !it.isChecked }
@@ -678,8 +658,7 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
                 ChecklistItem(
                     lineIndex = propertyLineIndex,
                     text = values.joinToString(", "),
-                    isChecked = false,
-                    isPlainText = true,
+                    type = BlockType.PROPERTY,
                     propertyName = name
                 )
             )
@@ -720,14 +699,10 @@ class VaultManager(private val context: Context, private val widgetId: Int = -1)
         if (lineIndex < 0 || lineIndex >= lines.size) return false
 
         val line = lines[lineIndex]
-        val match = CHECKLIST_REGEX.matchEntire(line) ?: return false
+        val match = MarkdownParser.TASK_LINE.matchEntire(line) ?: return false
 
-        val indent = match.groupValues[1]
-        val currentState = match.groupValues[2]
-        val text = match.groupValues[3]
-
-        val newState = if (currentState.lowercase() == "x") " " else "x"
-        lines[lineIndex] = "$indent- [$newState] $text"
+        val newState = if (match.groupValues[2] == " ") "x" else " "
+        lines[lineIndex] = match.groupValues[1] + newState + match.groupValues[3]
 
         return writeFileContent(noteUri, lines.joinToString("\n"))
     }
