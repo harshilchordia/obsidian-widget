@@ -62,7 +62,11 @@ object MarkdownStyler {
     fun style(parsed: MarkdownInline.Result, colors: VaultManager.ThemeColors): Spanned {
         val text = SpannableStringBuilder(parsed.text)
         val codeBackground = withAlpha(colors.textSecondary, 0x33)
-        for (span in parsed.spans) {
+        // Outer spans first, so inner ones (e.g. a link inside a coloured <span>) win
+        val ordered = parsed.spans.withIndex()
+            .sortedWith(compareBy<IndexedValue<MarkdownInline.Span>>({ it.value.start }, { -it.value.end }, { -it.index }))
+            .map { it.value }
+        for (span in ordered) {
             val spans: List<Any> = when (span.style) {
                 Style.BOLD -> listOf(StyleSpan(Typeface.BOLD))
                 Style.ITALIC -> listOf(StyleSpan(Typeface.ITALIC))
@@ -85,6 +89,8 @@ object MarkdownStyler {
                 )
                 Style.SUPERSCRIPT -> listOf(SuperscriptSpan(), RelativeSizeSpan(0.8f))
                 Style.SUBSCRIPT -> listOf(SubscriptSpan(), RelativeSizeSpan(0.8f))
+                Style.COLOR -> listOfNotNull(span.color?.let { ForegroundColorSpan(it) })
+                Style.BACKGROUND -> listOfNotNull(span.color?.let { BackgroundColorSpan(it) })
             }
             spans.forEach { text.setSpan(it, span.start, span.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
         }

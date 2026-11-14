@@ -47,7 +47,7 @@ Or open in Android Studio and click **Run**.
 - **Multiline capture** — add several tasks at once with one non-empty item per line
 - **Haptic actions** — receive subtle feedback for widget controls and task toggles
 - **TODO counter** — optional live count of unchecked tasks in the header
-- **Markdown rendering** — Obsidian-flavoured: headings, emphasis, highlights, code blocks, math, lists, quotes, callouts, tables, footnotes, tags and wikilinks
+- **Markdown rendering** — Obsidian-flavoured: headings, emphasis, highlights, code blocks, math, lists, quotes, callouts, tables, footnotes, tags, wikilinks and coloured text (`<span style>`, `<font color>`, Highlightr marks)
 - **Tasks anywhere** — toggle `- [ ]`, `* [ ]`, `1. [ ]` and tasks inside quotes or callouts
 - **Clickable links** — tap URLs to open them in your browser, tap `[[wikilinks]]` to open the note in Obsidian
 - **Nested indentation** — sub-items display with matching indent levels

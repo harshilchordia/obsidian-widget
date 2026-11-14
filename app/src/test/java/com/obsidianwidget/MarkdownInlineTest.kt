@@ -107,4 +107,66 @@ class MarkdownInlineTest {
         assertEquals("a & b < c —", render("a &amp; b &lt; c &mdash;").first)
         assertEquals("1 < 2", render("1 < 2").first)
     }
+
+    private fun colors(markdown: String) =
+        MarkdownInline.parse(markdown).let { result ->
+            result.spans.filter { it.color != null }
+                .map { Triple(result.text.substring(it.start, it.end), it.style, it.color) }
+        }
+
+    @Test
+    fun cssColors() {
+        assertEquals(0xFFFF0000.toInt(), MarkdownInline.parseCssColor("red"))
+        assertEquals(0xFFE74C3C.toInt(), MarkdownInline.parseCssColor("#e74c3c"))
+        assertEquals(0xFFFF0000.toInt(), MarkdownInline.parseCssColor("#f00"))
+        assertEquals(0xA6FFB86C.toInt(), MarkdownInline.parseCssColor("#FFB86CA6"))
+        assertEquals(0x80FF0000.toInt(), MarkdownInline.parseCssColor("rgba(255, 0, 0, 0.5)"))
+        assertEquals(0x80FF0000.toInt(), MarkdownInline.parseCssColor("rgb(255 0 0 / 50%)"))
+        assertNull(MarkdownInline.parseCssColor("var(--text-accent)"))
+        assertNull(MarkdownInline.parseCssColor("#12"))
+    }
+
+    @Test
+    fun coloredSpanAndFont() {
+        assertEquals(
+            listOf(Triple("red", Style.COLOR, 0xFFFF0000.toInt())),
+            colors("<span style=\"color: red\">red</span>")
+        )
+        assertEquals(
+            listOf(Triple("x", Style.COLOR, 0xFFE74C3C.toInt())),
+            colors("<font color=\"#e74c3c\">x</font>")
+        )
+        assertEquals(
+            listOf(Triple("bg", Style.BACKGROUND, 0xFF00FF00.toInt())),
+            colors("<span style='background-color:#0f0'>bg</span>")
+        )
+    }
+
+    @Test
+    fun highlightrMarks() {
+        val inline = MarkdownInline.parse("<mark style=\"background: #FFB86CA6;\">hi</mark>")
+        assertEquals(Style.BACKGROUND, inline.spans.single().style)
+        assertEquals(0xA6FFB86C.toInt(), inline.spans.single().color)
+
+        val byClass = MarkdownInline.parse("<mark class=\"hltr-red\">hi</mark>")
+        assertEquals(0x66FF0000, byClass.spans.single().color)
+
+        assertEquals(Style.HIGHLIGHT, MarkdownInline.parse("<mark>plain</mark>").spans.single().style)
+    }
+
+    @Test
+    fun combinedStyleAttributeAndNesting() {
+        val styles = styles("<span style=\"color:#00f; background:yellow; font-weight:700; text-decoration:underline\">all</span>")
+        assertEquals(
+            setOf("all" to Style.COLOR, "all" to Style.BACKGROUND, "all" to Style.BOLD, "all" to Style.UNDERLINE),
+            styles.toSet()
+        )
+        val nested = colors("<span style=\"color:red\">a <span style=\"color:blue\">b</span> c</span>")
+        assertEquals(
+            setOf(Triple("b", Style.COLOR, 0xFF0000FF.toInt()), Triple("a b c", Style.COLOR, 0xFFFF0000.toInt())),
+            nested.toSet()
+        )
+        assertEquals("unknown", render("<span style=\"color: var(--text-accent)\">unknown</span>").first)
+        assertEquals(emptyList<Any>(), colors("<span style=\"color: var(--text-accent)\">unknown</span>"))
+    }
 }

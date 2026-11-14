@@ -1,6 +1,7 @@
 package com.obsidianwidget
 
 import java.net.URLDecoder
+import kotlin.math.roundToInt
 
 /**
  * Inline Markdown parser for the Obsidian flavour: emphasis, strikethrough, highlights,
@@ -12,10 +13,17 @@ object MarkdownInline {
 
     enum class Style {
         BOLD, ITALIC, STRIKE, HIGHLIGHT, CODE, MATH, LINK, INTERNAL_LINK, EMBED, TAG,
-        FOOTNOTE, UNDERLINE, SUPERSCRIPT, SUBSCRIPT
+        FOOTNOTE, UNDERLINE, SUPERSCRIPT, SUBSCRIPT, COLOR, BACKGROUND
     }
 
-    data class Span(val start: Int, val end: Int, val style: Style, val target: String? = null)
+    /** [color] is an ARGB value, only set for [Style.COLOR] and [Style.BACKGROUND]. */
+    data class Span(
+        val start: Int,
+        val end: Int,
+        val style: Style,
+        val target: String? = null,
+        val color: Int? = null
+    )
 
     data class Result(val text: String, val spans: List<Span>) {
         /** First external URL, used to make a row tappable. */
@@ -33,6 +41,24 @@ object MarkdownInline {
     private val BARE_DOMAIN = Regex("""[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+(?:/[^\s<>"']*)?""")
     private val LINK_TITLE = Regex("""\s+["'(].*$""")
     private val HREF = Regex("""href\s*=\s*["']([^"']*)["']""", RegexOption.IGNORE_CASE)
+    private val HTML_ATTRIBUTE = Regex("""([A-Za-z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""")
+    private val HEX_COLOR = Regex("""#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})""")
+    private val RGB_COLOR = Regex("""rgba?\(([^)]*)\)""", RegexOption.IGNORE_CASE)
+    private val NAMED_COLORS = mapOf(
+        "black" to 0x000000, "white" to 0xFFFFFF, "gray" to 0x808080, "grey" to 0x808080,
+        "silver" to 0xC0C0C0, "red" to 0xFF0000, "darkred" to 0x8B0000, "crimson" to 0xDC143C,
+        "tomato" to 0xFF6347, "coral" to 0xFF7F50, "salmon" to 0xFA8072, "orange" to 0xFFA500,
+        "darkorange" to 0xFF8C00, "gold" to 0xFFD700, "yellow" to 0xFFFF00, "olive" to 0x808000,
+        "lime" to 0x00FF00, "green" to 0x008000, "darkgreen" to 0x006400, "lightgreen" to 0x90EE90,
+        "teal" to 0x008080, "cyan" to 0x00FFFF, "aqua" to 0x00FFFF, "turquoise" to 0x40E0D0,
+        "skyblue" to 0x87CEEB, "lightblue" to 0xADD8E6, "blue" to 0x0000FF, "darkblue" to 0x00008B,
+        "navy" to 0x000080, "royalblue" to 0x4169E1, "indigo" to 0x4B0082, "purple" to 0x800080,
+        "violet" to 0xEE82EE, "magenta" to 0xFF00FF, "fuchsia" to 0xFF00FF, "orchid" to 0xDA70D6,
+        "pink" to 0xFFC0CB, "hotpink" to 0xFF69B4, "brown" to 0xA52A2A, "maroon" to 0x800000
+    )
+    /** Highlightr's "CSS classes" mode writes e.g. <mark class="hltr-red">. */
+    private const val HIGHLIGHTR_CLASS = "hltr-"
+    private const val HIGHLIGHTR_ALPHA = 0x66
     private val HTML_TAG = Regex("""</?([A-Za-z][A-Za-z0-9-]*)(?:\s[^<>]*)?/?>""")
     private val ENTITY = Regex("""&(#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z]+);""")
     private val NAMED_ENTITIES = mapOf(
@@ -54,6 +80,77 @@ object MarkdownInline {
         val builder = Builder()
         builder.parse(decodeEntities(source))
         return Result(builder.out.toString(), builder.spans)
+    }
+
+    /**
+     * Styles of an inline HTML tag: the tag's own style plus colours and font styles from
+     * its attributes, as written by colour plugins (Highlightr, Editing Toolbar, ...).
+     * Only the style and colour of the returned spans are used.
+     */
+    private fun tagStyles(name: String, tag: String): List<Span> {
+        val attributes = HTML_ATTRIBUTE.findAll(tag).associate { m ->
+            m.groupValues[1].lowercase() to m.groupValues.drop(2).firstOrNull { it.isNotEmpty() }.orEmpty()
+        }
+        val styles = HTML_STYLES[name].orEmpty().map { Span(0, 0, it) }.toMutableList()
+        fun add(style: Style, color: Int? = null) {
+            styles.removeAll { it.style == style || (style == Style.BACKGROUND && it.style == Style.HIGHLIGHT) }
+            styles.add(Span(0, 0, style, color = color))
+        }
+        if (name == "font") attributes["color"]?.let(::parseCssColor)?.let { add(Style.COLOR, it) }
+        if (name == "mark") {
+            attributes["class"]?.split(' ')
+                ?.firstOrNull { it.startsWith(HIGHLIGHTR_CLASS) }
+                ?.let { NAMED_COLORS[it.removePrefix(HIGHLIGHTR_CLASS).lowercase()] }
+                ?.let { add(Style.BACKGROUND, (HIGHLIGHTR_ALPHA shl 24) or it) }
+        }
+        attributes["style"]?.split(';')?.forEach { declaration ->
+            val property = declaration.substringBefore(':').trim().lowercase()
+            val value = declaration.substringAfter(':', "").trim().lowercase()
+            when (property) {
+                "color" -> parseCssColor(value)?.let { add(Style.COLOR, it) }
+                "background", "background-color" ->
+                    (parseCssColor(value) ?: value.split(' ').firstNotNullOfOrNull(::parseCssColor))
+                        ?.let { add(Style.BACKGROUND, it) }
+                "font-weight" -> if (value == "bold" || value == "bolder" || (value.toIntOrNull() ?: 0) >= 600) add(Style.BOLD)
+                "font-style" -> if (value == "italic" || value == "oblique") add(Style.ITALIC)
+                "text-decoration", "text-decoration-line" -> {
+                    if ("underline" in value) add(Style.UNDERLINE)
+                    if ("line-through" in value) add(Style.STRIKE)
+                }
+            }
+        }
+        return styles
+    }
+
+    /**
+     * Parses a CSS colour (#rgb, #rgba, #rrggbb, #rrggbbaa, rgb(), rgba() or a common name)
+     * into ARGB. Theme variables such as var(--text-accent) can't be resolved and return null.
+     */
+    fun parseCssColor(value: String): Int? {
+        val v = value.trim().lowercase()
+        HEX_COLOR.matchEntire(v)?.let { m ->
+            var hex = m.groupValues[1]
+            if (hex.length <= 4) hex = hex.map { "$it$it" }.joinToString("")
+            val rgb = hex.substring(0, 6).toInt(16)
+            val alpha = if (hex.length == 8) hex.substring(6).toInt(16) else 0xFF
+            return (alpha shl 24) or rgb
+        }
+        RGB_COLOR.matchEntire(v)?.let { m ->
+            val parts = m.groupValues[1].split(',', '/', ' ').filter { it.isNotBlank() }
+            if (parts.size < 3) return null
+            val channels = parts.take(3).map { part ->
+                val number = part.removeSuffix("%").toFloatOrNull() ?: return null
+                val scaled = if (part.endsWith("%")) number * 2.55f else number
+                scaled.roundToInt().coerceIn(0, 255)
+            }
+            val alpha = parts.getOrNull(3)?.let { part ->
+                val number = part.removeSuffix("%").toFloatOrNull() ?: return null
+                val fraction = if (part.endsWith("%")) number / 100f else number
+                (fraction * 255).roundToInt().coerceIn(0, 255)
+            } ?: 0xFF
+            return (alpha shl 24) or (channels[0] shl 16) or (channels[1] shl 8) or channels[2]
+        }
+        return NAMED_COLORS[v]?.let { (0xFF shl 24) or it }
     }
 
     private fun decodeEntities(s: String): String {
@@ -300,27 +397,42 @@ object MarkdownInline {
                 out.append("\n――――\n")
                 return afterTag
             }
-            val styles = HTML_STYLES[name]
-            val closeTag = Regex("</$name\\s*>", RegexOption.IGNORE_CASE).find(s, afterTag)
-            if (closeTag == null || tag.value.endsWith("/>")) return afterTag
-            val content = s.substring(afterTag, closeTag.range.first)
+            if (tag.value.endsWith("/>")) return afterTag
+            val closeTag = findClosingTag(s, name, afterTag) ?: return afterTag
+            val content = s.substring(afterTag, closeTag.first)
             if (name == "a") {
                 val href = HREF.find(tag.value)?.groupValues?.get(1)
                 if (href != null) {
                     styled(Style.LINK, href) { parse(content) }
-                    return closeTag.range.last + 1
+                    return closeTag.last + 1
                 }
             }
-            applyStyles(styles ?: emptyList()) { parse(content) }
-            return closeTag.range.last + 1
+            applyStyles(tagStyles(name, tag.value)) { parse(content) }
+            return closeTag.last + 1
         }
 
-        private fun applyStyles(styles: List<Style>, block: () -> Unit) {
+        /** Range of the closing tag that matches the tag opened before [from], honouring nesting. */
+        private fun findClosingTag(s: String, name: String, from: Int): IntRange? {
+            val tags = Regex("""<(/?)$name(?:\s[^<>]*)?>""", RegexOption.IGNORE_CASE)
+            var depth = 1
+            for (match in tags.findAll(s, from)) {
+                when {
+                    match.groupValues[1].isNotEmpty() -> if (--depth == 0) return match.range
+                    !match.value.endsWith("/>") -> depth++
+                }
+            }
+            return null
+        }
+
+        private fun applyStyles(styles: List<Span>, block: () -> Unit) {
             if (styles.isEmpty()) {
                 block()
                 return
             }
-            styled(styles.first()) { applyStyles(styles.drop(1), block) }
+            val first = styles.first()
+            val start = out.length
+            applyStyles(styles.drop(1), block)
+            if (out.length > start) spans.add(first.copy(start = start, end = out.length))
         }
 
         private fun tag(s: String, i: Int): Int? {
