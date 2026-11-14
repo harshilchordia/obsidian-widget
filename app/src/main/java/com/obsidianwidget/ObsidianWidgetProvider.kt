@@ -151,7 +151,6 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
         // Check if note has checklist items
         val allItems = vaultManager.parseChecklist()
         val hasChecklist = allItems.any { !it.isPlainText }
-        val hasProperties = allItems.any { it.propertyName != null }
 
         // Show TODO count if enabled
         if (vaultManager.showTodoCount && hasChecklist) {
@@ -163,8 +162,8 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_todo_count, View.GONE)
         }
 
-        if (hasChecklist || hasProperties) {
-            // Show parsed checklist and property rows
+        if (allItems.isNotEmpty()) {
+            // Show the rendered Markdown rows (tasks stay interactive)
             views.setViewVisibility(R.id.widget_checklist, View.VISIBLE)
             views.setViewVisibility(R.id.widget_note_preview, View.GONE)
 
@@ -195,14 +194,10 @@ class ObsidianWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_note_preview, View.VISIBLE)
 
             if (vaultManager.isVaultConfigured || vaultManager.noteMode == VaultManager.NoteMode.PINNED) {
-                val noteContent = vaultManager.readWidgetNoteForDisplay()
-                val preview = noteContent?.take(500) ?: context.getString(R.string.no_daily_note)
+                val noteContent = vaultManager.readWidgetNote()
                 views.setTextViewText(
                     R.id.widget_note_preview,
-                    ChecklistRemoteViewsFactory.markdownToHtml(
-                        preview,
-                        vaultManager.getThemeColors().accent
-                    )
+                    if (noteContent == null) context.getString(R.string.no_daily_note) else ""
                 )
             } else {
                 views.setTextViewText(
